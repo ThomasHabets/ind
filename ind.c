@@ -5,7 +5,7 @@
  *
  *
  *
- * $Id: ind.c 1229 2005-04-14 16:25:52Z marvin $
+ * $Id: ind.c 1230 2005-04-14 17:45:28Z marvin $
  */
 #define _GNU_SOURCE 1
 #include <stdio.h>
@@ -70,26 +70,37 @@ usage(int err)
   exit(err);
 }
 
+/*
+ *
+ */
+static void
+format(const char *format, char **output)
+{
+	char *ret = malloc(32);
+	int curlen = 32;
+	int len;
+
+	len = snprintf(
+}
 
 /*
  * ret 0 on success
  */
-static int process(int fdin,int fdout,
-		    const char *pre, int prelen,
-		    const char *post, int postlen, int *emptyline)
+static int
+process(int fdin,int fdout,
+	const char *pre, int prelen,
+	const char *post, int postlen, int *emptyline)
 {
   int n;
   char buf[128];
 
   if (!(n = read(fdin, buf, sizeof(buf)-1))) {
-    safe_write(fdout,"\n", 1);
     return 1;
   }
 
   if (n > 0) {
     char *p = buf;
     char *q;
-    buf[n] = 0;
 
     while ((q = memchr(p,'\n',n))) {
       if (*emptyline) {
@@ -116,7 +127,6 @@ static int process(int fdin,int fdout,
 	return 1;
       }
     }
-    
   }
   return 0;
 }
@@ -191,19 +201,28 @@ main(int argc, char **argv)
   TEMP_FAILURE_RETRY(close(es[1]));
 
   for(;;) {
+    char *tmp, *ptmp;
     if (nclosed > 1) {
       break;
     }
-    if (-1!=s[0] && process(s[0],STDOUT_FILENO, prefix,prefixlen,
-			    postfix,postfixlen,&emptyline)) {
+    format(prefix, tmp);
+    format(postfix, ptmp);
+    if (-1!=s[0] && process(s[0],STDOUT_FILENO, tmp,strlen(tmp),
+			    ptmp,strlen(ptmp),&emptyline)) {
       nclosed++;
       s[0] = -1;
     }
-    if (-1!=es[0] && process(es[0],STDERR_FILENO, eprefix,eprefixlen,
-			    epostfix,epostfixlen, &eemptyline)) {
+    free(tmp);
+    free(ptmp);
+    format(eprefix, tmp);
+    format(epostfix, ptmp);
+    if (-1!=es[0] && process(es[0],STDERR_FILENO, tmp,strlen(tmp),
+			    ptmp,strlen(ptmp), &eemptyline)) {
       nclosed++;
       es[0] = -1;
     }
+    free(tmp);
+    free(ptmp);
   }
   exit(0);
 }
