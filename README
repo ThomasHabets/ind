@@ -1,0 +1,40 @@
+$Id$
+
+ ind
+
+    By Thomas Habets <thomas@habets.pp.se>
+
+Introduction
+------------
+
+Why the name 'ind'?
+-------------------
+If it makes you feel better, you can think of it as meaning
+"Indent to make reading output Not-Difficult".
+
+Example uses
+------------
+Let's say you're running a script that has several stages, each producing
+some status output. Now you can indent the output from the substages.
+
+<< snip >>
+echo "Stage 1, reconfooberating the ablamatron..."
+ind -p "--> " cat blah.txt
+
+echo "Stage 2, burning image..."
+ind -p "    " growisofs -Z /dev/hdc=randomcrap.img
+<< snip >>
+
+This will produce the output:
+<< snip >>
+Stage 1, reconfooberating the ablamatron...
+--> This is a text file
+--> with only text in it.
+Stage 2, burning image...
+    ...
+    ...
+    ...
+<< snip >>
+
+----------------------------------------------------------------------------
+Send questions/suggestions/patches/rants/money/alphas to thomas@habets.pp.se

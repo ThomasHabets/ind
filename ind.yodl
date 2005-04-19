@@ -1,0 +1,54 @@
+manpage(ind)(1)(15th April, 2005)(ind)()
+
+manpagename(ind)(Indent all output from subprocess)
+
+manpagesynopsis()
+	bf(ind) [ -h ] [ -p <text> ] [ -a <text> ] [ -P <text> ] [ -A <text> ]
+
+manpagedescription()
+	Indent all output from subprocess.
+
+manpageoptions()
+startdit()
+	dit(-a) Blah
+	dit(-A) Blah
+	dit(-h) Blah
+	dit(-p) Blah
+	dit(-P) Blah
+enddit()
+
+manpagebugs()
+	Does not emulate a terminal for programs that check that. This
+	means that the subprocess can't adjust the width of the output.
+
+	Also, subprocesses that rewind the line (with \r) are not updated
+	in realtime.
+
+manpageexamples()
+Let's say you're running a script that has several stages, each producing
+some status output. Now you can indent the output from the substages.
+
+<< snip >> \\
+echo "Stage 1, reconfooberating the ablamatron..." \
+ind -p "--> " cat blah.txt \
+\
+echo "Stage 2, burning image..." \
+ind -p "    " growisofs -Z /dev/hdc=randomcrap.img \
+<< snip >>
+
+This will produce the output:
+<< snip >>
+Stage 1, reconfooberating the ablamatron...
+--> This is a text file
+--> with only text in it.
+Stage 2, burning image...
+    ...
+    ...
+    ...
+<< snip >>
+
+manpageseealso()
+	bf(sh(1))
+
+manpageauthor()
+	Ind was written by Thomas Habets <thomas@habets.pp.se>.

@@ -3,9 +3,9 @@
  *
  * By Thomas Habets <thomas@habets.pp.se>
  *
+ * (setq c-basic-offset 2)
  *
- *
- * $Id: ind.c 1230 2005-04-14 17:45:28Z marvin $
+ * $Id: ind.c 1231 2005-04-19 16:58:07Z marvin $
  */
 #define _GNU_SOURCE 1
 #include <stdio.h>
@@ -53,9 +53,11 @@ safe_write(int fd, const void *buf, size_t len)
 static void
 child(int fd, int efd, int argc, char **argv)
 {
-  dup2(fd, STDOUT_FILENO);
-  dup2(efd, STDERR_FILENO);
-  execv("/bin/bash",argv);
+  if ((-1 == dup2(fd, STDOUT_FILENO))
+      || (-1 == dup2(efd, STDERR_FILENO))) {
+    fprintf(stderr, "%s: Unable to dup2(): %s", strerror(errno));
+  }
+  execvp(argv[0],argv);
   fprintf(stderr, "%s: %s: %s\n", argv0, argv[0], strerror(errno));
   exit(0);
 }
@@ -66,21 +68,49 @@ child(int fd, int efd, int argc, char **argv)
 static void
 usage(int err)
 {
-  printf("Foo %s\n", argv0);
+  printf("usage: %s [ -h ] [ -p <text> ] [ -a <text> ] [ -P <text> ] [ -A <text> ]  \n"
+	 "\n"
+	 "", argv0);
   exit(err);
+}
+
+/*
+ * just like memchr, but first of any of a set of chars
+ */
+static char *
+anychr(const char *p, const char *chars, size_t len)
+{
+  int c;
+  char *ret = NULL;
+  char *tmp;
+  if (!*chars) {
+    return NULL;
+  }
+
+  for(c = strlen(chars); c; c--) {
+    tmp = memchr(p, chars[c-1], len);
+    if (tmp && (!ret || tmp < ret)) {
+      ret = tmp;
+    }
+  }
+  return ret;
 }
 
 /*
  *
  */
 static void
-format(const char *format, char **output)
+format(const char *fmt, char **output)
 {
-	char *ret = malloc(32);
-	int curlen = 32;
-	int len;
-
-	len = snprintf(
+  int len;
+  
+  len = snprintf(NULL, 0, "%s", fmt);
+  if (!(*output = malloc(len+1))) {
+    fprintf(stderr, "%s: %s\n", argv0, strerror(errno));
+    exit(1);
+  }
+  *output = malloc(len+10);
+  snprintf(*output, len+1, "%s", fmt);
 }
 
 /*
@@ -102,7 +132,7 @@ process(int fdin,int fdout,
     char *p = buf;
     char *q;
 
-    while ((q = memchr(p,'\n',n))) {
+    while ((q = anychr(p,"\r\n",n))) {
       if (*emptyline) {
 	if (0 > safe_write(fdout,pre,prelen)) {
 	  return 1;
@@ -115,7 +145,7 @@ process(int fdin,int fdout,
       if (0 > safe_write(fdout,post,postlen)) {
 	return 1;
       }
-      if (0 > safe_write(fdout,"\n",1)) {
+      if (0 > safe_write(fdout,q,1)) {
 	return 1;
       }
       *emptyline = 1;
@@ -123,6 +153,12 @@ process(int fdin,int fdout,
       p=q+1;
     }
     if (n) {
+      if (*emptyline) {
+	if (0 > safe_write(fdout,pre,prelen)) {
+	  return 1;
+	}
+	*emptyline = 0;
+      }
       if (0 > safe_write(fdout,p,n)) {
 	return 1;
       }
@@ -154,7 +190,7 @@ main(int argc, char **argv)
 
   argv0 = argv[0];
 
-  while (EOF != (c = getopt(argc, argv, "h:p:a:P:A:"))) {
+  while (-1 != (c = getopt(argc, argv, "+h:p:a:P:A:"))) {
     switch(c) {
     case 'h':
       usage(0);
@@ -205,8 +241,8 @@ main(int argc, char **argv)
     if (nclosed > 1) {
       break;
     }
-    format(prefix, tmp);
-    format(postfix, ptmp);
+    format(prefix, &tmp);
+    format(postfix, &ptmp);
     if (-1!=s[0] && process(s[0],STDOUT_FILENO, tmp,strlen(tmp),
 			    ptmp,strlen(ptmp),&emptyline)) {
       nclosed++;
@@ -214,8 +250,8 @@ main(int argc, char **argv)
     }
     free(tmp);
     free(ptmp);
-    format(eprefix, tmp);
-    format(epostfix, ptmp);
+    format(eprefix, &tmp);
+    format(epostfix, &ptmp);
     if (-1!=es[0] && process(es[0],STDERR_FILENO, tmp,strlen(tmp),
 			    ptmp,strlen(ptmp), &eemptyline)) {
       nclosed++;
