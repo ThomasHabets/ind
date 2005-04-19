@@ -5,7 +5,7 @@
  *
  * (setq c-basic-offset 2)
  *
- * $Id: ind.c 1233 2005-04-19 17:39:19Z marvin $
+ * $Id: ind.c 1234 2005-04-19 17:43:50Z marvin $
  */
 #define _GNU_SOURCE 1
 #include <stdio.h>
@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
+#include <time.h>
 
 #ifndef TEMP_FAILURE_RETRY
 #error "I'm too lazy to re-code that"
@@ -68,9 +69,18 @@ child(int fd, int efd, int argc, char **argv)
 static void
 usage(int err)
 {
-  printf("usage: %s [ -h ] [ -p <text> ] [ -a <text> ] [ -P <text> ] [ -A <text> ]  \n"
-	 "\n"
-	 "", argv0);
+  printf("usage: %s [ -h ] [ -p <fmt> ] [ -a <fmt> ] [ -P <fmt> ] "
+	 "[ -A <fmt> ]  \n"
+	 "\t-a        Postfix stdout\n"
+	 "\t-A        Postfix stderr\n"
+	 "\t-h        Show this help text\n"
+	 "\t-p        Prefix stdout\n"
+	 "\t-P        Prefix stderr\n"
+	 "Format:\n"
+	 " Normal text, except:\n"
+	 "\t%%%%        Insert %%%%\n"
+	 "\t%%c        Insert output from ctime(3) function\n"
+	 , argv0);
   exit(err);
 }
 
@@ -254,7 +264,7 @@ main(int argc, char **argv)
 
   argv0 = argv[0];
 
-  while (-1 != (c = getopt(argc, argv, "+h:p:a:P:A:"))) {
+  while (-1 != (c = getopt(argc, argv, "+hp:a:P:A:"))) {
     switch(c) {
     case 'h':
       usage(0);
