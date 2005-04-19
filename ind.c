@@ -5,7 +5,7 @@
  *
  * (setq c-basic-offset 2)
  *
- * $Id: ind.c 1232 2005-04-19 17:01:00Z marvin $
+ * $Id: ind.c 1233 2005-04-19 17:39:19Z marvin $
  */
 #define _GNU_SOURCE 1
 #include <stdio.h>
@@ -99,17 +99,82 @@ anychr(const char *p, const char *chars, size_t len)
 /*
  *
  */
+static size_t
+chomp(char *str)
+{
+  size_t len;
+  len = strlen(str);
+  while (len && strchr("\n\r",str[len-1])) {
+    str[len - 1] = 0;
+    len--;
+  }
+  return len;
+}
+
+/*
+ *
+ */
 static void
 format(const char *fmt, char **output)
 {
-  int len;
-  
-  len = snprintf(NULL, 0, "%s", fmt);
-  if (!(*output = (char*)malloc(len+1))) {
+  int len = 0;
+  const char *p = fmt;
+  char *out;
+  char ct[128];
+  time_t t;
+
+  while (*p) {
+    if (*p == '%') {
+      p++;
+      switch(*p) {
+      case 0:
+	break;
+      case 'c':
+	if (-1 == time(&t)) {
+	  static int done = 0;
+	  if (!done) {
+	    fprintf(stderr, "%s: time() failed: %s\n", argv0, strerror(errno));
+	    fprintf(stderr,
+		    "%s: time() failed: this message won't be repeated\n",
+		    argv0);
+	  }
+	}
+	strncpy(ct, ctime(&t), sizeof(ct)-1);
+	ct[sizeof(ct)-1] = 0;
+	len += chomp(ct);
+	break;
+      default:
+	break;
+      }
+    }
+    len++;
+    p++;
+  }
+  if (!(*output = (char*)malloc(len+2))) {
     fprintf(stderr, "%s: %s\n", argv0, strerror(errno));
     exit(1);
   }
-  snprintf(*output, len+1, "%s", fmt);
+  out = *output;
+  p = fmt;
+  while (*p) {
+    if (*p == '%') {
+      p++;
+      switch(*p) {
+      case 0:
+	break;
+      case 'c':
+	strcpy(out,ct);
+	out = index(out,0);
+	break;
+      default:
+	break;
+      }
+      p++;
+    }
+    *out++ = *p;
+    p++;
+  }
+  *out = 0;
 }
 
 /*
