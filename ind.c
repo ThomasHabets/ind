@@ -5,7 +5,7 @@
  *
  * (setq c-basic-offset 2)
  *
- * $Id: ind.c 1231 2005-04-19 16:58:07Z marvin $
+ * $Id: ind.c 1232 2005-04-19 17:01:00Z marvin $
  */
 #define _GNU_SOURCE 1
 #include <stdio.h>
@@ -105,11 +105,10 @@ format(const char *fmt, char **output)
   int len;
   
   len = snprintf(NULL, 0, "%s", fmt);
-  if (!(*output = malloc(len+1))) {
+  if (!(*output = (char*)malloc(len+1))) {
     fprintf(stderr, "%s: %s\n", argv0, strerror(errno));
     exit(1);
   }
-  *output = malloc(len+10);
   snprintf(*output, len+1, "%s", fmt);
 }
 
