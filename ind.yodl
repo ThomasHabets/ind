@@ -3,7 +3,7 @@ manpage(ind)(1)(19th April, 2005)(ind)()
 manpagename(ind)(Indent all output from subprocess)
 
 manpagesynopsis()
-	bf(ind) [ -h ] [ -p <fmt> ] [ -a <fmt> ] [ -P <fmt> ] [ -A <fmt> ]
+	bf(ind) [ -h ] [ -p <fmt> ] [ -a <fmt> ] [ -P <fmt> ] [ -A <fmt> ] <command> <args> ...
 
 manpagedescription()
 	Indent all output from subprocess.

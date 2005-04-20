@@ -3,7 +3,7 @@
  *
  * By Thomas Habets <thomas@habets.pp.se>
  *
- * $Id: ind.c 1235 2005-04-20 10:14:52Z marvin $
+ * $Id: ind.c 1240 2005-04-20 10:24:09Z marvin $
  */
 /*
  * (BSD license without advertising clause below)
@@ -97,6 +97,7 @@ usage(int err)
   printf("ind %.2f, by Thomas Habets <thomas@habets.pp.se>\n"
 	 "usage: %s [ -h ] [ -p <fmt> ] [ -a <fmt> ] [ -P <fmt> ] "
 	 "[ -A <fmt> ]  \n"
+	 "          <command> <args> ...\n"
 	 "\t-a        Postfix stdout\n"
 	 "\t-A        Postfix stderr\n"
 	 "\t-h        Show this help text\n"
@@ -310,6 +311,10 @@ main(int argc, char **argv)
     default:
       usage(1);
     }
+  }
+
+  if (optind >= argc) {
+    usage(1);
   }
 
   prefixlen = strlen(prefix);
