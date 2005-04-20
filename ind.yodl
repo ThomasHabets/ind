@@ -10,11 +10,11 @@ manpagedescription()
 
 manpageoptions()
 startdit()
-	dit(-a fmt) Blah
-	dit(-A fmt) Blah
-	dit(-h) Blah
-	dit(-p fmt) Blah
-	dit(-P fmt) Blah
+	dit(-a fmt) Postfix stdout (default: "")
+	dit(-A fmt) Postfix stderr (default: "")
+	dit(-h) Show help text
+	dit(-p fmt) Prefix stdout (default: "  ")
+	dit(-P fmt) Prefix stderr (default: ">>")
 enddit()
 
 	Format is normal text, except for '%' which is the escape character.

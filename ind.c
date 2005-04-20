@@ -3,7 +3,7 @@
  *
  * By Thomas Habets <thomas@habets.pp.se>
  *
- * $Id: ind.c 1242 2005-04-20 10:51:04Z marvin $
+ * $Id: ind.c 1243 2005-04-20 10:56:32Z marvin $
  */
 /*
  * (BSD license without advertising clause below)
@@ -106,11 +106,11 @@ usage(int err)
 	 "usage: %s [ -h ] [ -p <fmt> ] [ -a <fmt> ] [ -P <fmt> ] "
 	 "[ -A <fmt> ]  \n"
 	 "          <command> <args> ...\n"
-	 "\t-a        Postfix stdout\n"
-	 "\t-A        Postfix stderr\n"
+	 "\t-a        Postfix stdout (default: \"\")\n"
+	 "\t-A        Postfix stderr (default: \"\")\n"
 	 "\t-h        Show this help text\n"
-	 "\t-p        Prefix stdout\n"
-	 "\t-P        Prefix stderr\n"
+	 "\t-p        Prefix stdout (default: \"  \")\n"
+	 "\t-P        Prefix stderr (default: \">>\") \n"
 	 "Format:\n"
 	 " Normal text, except:\n"
 	 "\t%%%%        Insert %%%%\n"
