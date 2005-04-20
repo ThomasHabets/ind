@@ -3,7 +3,7 @@
  *
  * By Thomas Habets <thomas@habets.pp.se>
  *
- * $Id: ind.c 1240 2005-04-20 10:24:09Z marvin $
+ * $Id: ind.c 1242 2005-04-20 10:51:04Z marvin $
  */
 /*
  * (BSD license without advertising clause below)
@@ -32,7 +32,6 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#define _GNU_SOURCE 1
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -41,13 +40,20 @@
 #include <errno.h>
 #include <time.h>
 
-#ifndef TEMP_FAILURE_RETRY
-#error "I'm too lazy to re-code that"
-#endif
-
 static const char *argv0;
 static const float version = 0.1f;
 
+/*
+ *
+ */
+static void
+do_close(int fd)
+{
+  int err;
+  do {
+    err = close(fd);
+  } while ((-1 == err) && (errno = EINTR)); 
+}
 /*
  *
  */
@@ -58,8 +64,10 @@ safe_write(int fd, const void *buf, size_t len)
   int offset = 0;
   
   while(len > 0) {
-    ret = TEMP_FAILURE_RETRY(write(fd, (unsigned char *)buf + offset, len));
-    
+    do {
+      ret = write(fd, (unsigned char *)buf + offset, len);
+    } while ((-1 == ret) && (errno == EINTR));
+
     if(ret < 0) {
       return ret;
     } else if(ret == 0) {
@@ -289,6 +297,7 @@ main(int argc, char **argv)
   unsigned int nclosed = 0;
   int emptyline = 1;
   int eemptyline = 1;
+  int err;
 
   argv0 = argv[0];
 
@@ -333,14 +342,14 @@ main(int argc, char **argv)
 
   switch (fork()) {
   case 0:
-    TEMP_FAILURE_RETRY(close(s[0]));
+    do_close(s[0]);
     child(s[1], es[1], argc, &argv[optind]);
   case -1:
     fprintf(stderr, "%s: fork() failed: ", argv[0], strerror(errno));
     exit(1);
   }
-  TEMP_FAILURE_RETRY(close(s[1]));
-  TEMP_FAILURE_RETRY(close(es[1]));
+  do_close(s[1]);
+  do_close(es[1]);
 
   for(;;) {
     char *tmp, *ptmp;
