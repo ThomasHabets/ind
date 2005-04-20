@@ -1,0 +1,83 @@
+.TH "ind" "1" "19th April, 2005" "ind" "" 
+.PP 
+.SH "NAME" 
+ind \- Indent all output from subprocess
+.PP 
+.SH "SYNOPSIS" 
+\fBind\fP [ -h ] [ -p <fmt> ] [ -a <fmt> ] [ -P <fmt> ] [ -A <fmt> ]
+.PP 
+.SH "DESCRIPTION" 
+Indent all output from subprocess\&.
+.PP 
+.SH "OPTIONS" 
+.IP "-a fmt" 
+Blah
+.IP "-A fmt" 
+Blah
+.IP "-h" 
+Blah
+.IP "-p fmt" 
+Blah
+.IP "-P fmt" 
+Blah
+.PP 
+Format is normal text, except for \&'%\&' which is the escape character\&.
+.IP "%%" 
+Insert % character\&.
+.IP "%c" 
+Insert output from ctime()\&. (e\&.g\&.: Tue Apr 19 19:31:04 2005)
+.PP 
+.SH "BUGS" 
+Does not emulate a terminal for programs that check that\&. This
+means that the subprocess can\&'t adjust the width of the output\&.
+.PP 
+Also, subprocesses that rewind the line (with \er) are not updated
+in realtime\&.
+.PP 
+.SH "EXAMPLES" 
+Let\&'s say you\&'re running a script that has several stages, each producing
+some status output\&. Now you can indent the output from the substages\&.
+.PP 
+<< snip >> 
+.br 
+echo "Stage 1, reconfooberating the ablamatron\&.\&.\&." 
+.br 
+ind -p "--> " cat blah\&.txt 
+.br 
+.br 
+echo "Stage 2, burning image\&.\&.\&." 
+.br 
+ind -p "___ " -a " ___" growisofs -Z /dev/hdc=randomcrap\&.img 
+.br 
+<< snip >> 
+.br 
+.PP 
+This will produce the output:
+<< snip >> 
+.br 
+Stage 1, reconfooberating the ablamatron\&.\&.\&. 
+.br 
+--> This is a text file 
+.br 
+--> with only text in it\&. 
+.br 
+Stage 2, burning image\&.\&.\&. 
+.br 
+___ \&.\&.\&. ___ 
+.br 
+___ \&.\&.\&. ___ 
+.br 
+___ \&.\&.\&. ___ 
+.br 
+<< snip >> 
+.br 
+.PP 
+.SH "SEE ALSO" 
+\fBsh(1)\fP, \fBctime(3)\fP
+.PP 
+.SH "COPYRIGHT" 
+Copyright (c) Thomas Habets 2005\&.
+.PP 
+.SH "AUTHOR" 
+Ind was written by Thomas Habets <thomas@habets\&.pp\&.se>\&. Send
+all bug reports his way\&.
