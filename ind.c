@@ -3,7 +3,7 @@
  *
  * By Thomas Habets <thomas@habets.pp.se>
  *
- * $Id: ind.c 1243 2005-04-20 10:56:32Z marvin $
+ * $Id: ind.c 1250 2005-04-29 09:49:46Z marvin $
  */
 /*
  * (BSD license without advertising clause below)
@@ -33,12 +33,24 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include <stdio.h>
+#include <unistd.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <errno.h>
 #include <time.h>
+
+#ifndef FILENO_STDIN
+#define STDIN_FILENO    0
+#endif
+#ifndef STDOUT_FILENO
+#define STDOUT_FILENO   1
+#endif
+#ifndef STDERR_FILENO
+#define STDERR_FILENO   2
+#endif
+
 
 static const char *argv0;
 static const float version = 0.1f;
