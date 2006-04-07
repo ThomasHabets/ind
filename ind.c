@@ -3,7 +3,7 @@
  *
  * By Thomas Habets <thomas@habets.pp.se>
  *
- * $Id: ind.c 1250 2005-04-29 09:49:46Z marvin $
+ * $Id: ind.c 1518 2006-04-07 12:32:34Z marvin $
  */
 /*
  * (BSD license without advertising clause below)
@@ -55,8 +55,12 @@
 static const char *argv0;
 static const float version = 0.1f;
 
-/*
+/**
+ * EINTR-safe close()
+ * If close() fails due to anything other than EINTR, the fd is silently
+ * leaked.
  *
+ * @param   fd:  fd to close
  */
 static void
 do_close(int fd)
@@ -66,10 +70,21 @@ do_close(int fd)
     err = close(fd);
   } while ((-1 == err) && (errno = EINTR)); 
 }
-/*
+
+/**
+ * Just like write(), except it really really writes everything, unless
+ * there is a real (non-EINTR) error.
  *
+ * Note that if there is a non-EINTR error, this function does not
+ * reveal how much has been written.
+ *
+ * @param   fd:  fd to write to
+ * @param   buf: data to write
+ * @param   len: length of data
+ *
+ * @return  Number of bytes written, or -1 on error (errno set)
  */
-static int
+static ssize_t
 safe_write(int fd, const void *buf, size_t len)
 {
   int ret;
@@ -92,8 +107,13 @@ safe_write(int fd, const void *buf, size_t len)
   return offset;
 }
 
-/*
+/**
+ * Set up stdout/stderr and exec subprocess
  *
+ * @param   fd:   stdout fd
+ * @param   efd:  stderr fd
+ * @param   argc: argc of subprocess
+ * @param   argv: argv of subprocess
  */
 static void
 child(int fd, int efd, int argc, char **argv)
@@ -104,11 +124,13 @@ child(int fd, int efd, int argc, char **argv)
   }
   execvp(argv[0],argv);
   fprintf(stderr, "%s: %s: %s\n", argv0, argv[0], strerror(errno));
-  exit(0);
+  exit(1);
 }
 
-/*
+/**
+ * Print usage information and exit
  *
+ * @param  err: value sent to exit()
  */
 static void
 usage(int err)
@@ -131,8 +153,15 @@ usage(int err)
   exit(err);
 }
 
-/*
+/**
  * just like memchr, but first of any of a set of chars
+ *
+ * @param  p:       string to search in
+ * @param  chars:   characters to look for
+ * @param  len:     length of string to search in
+ *
+ * @return   Pointer to first occurance of any of the characters, or NULL
+ *           if not found.
  */
 static char *
 anychr(const char *p, const char *chars, size_t len)
@@ -153,8 +182,11 @@ anychr(const char *p, const char *chars, size_t len)
   return ret;
 }
 
-/*
+/**
+ * In-place remove of all trailing newlines (be they CR or LF)
  *
+ * @param     str:    String to change (may be written to)
+ * @return            New length of string
  */
 static size_t
 chomp(char *str)
@@ -168,9 +200,16 @@ chomp(char *str)
   return len;
 }
 
-/*
- * return malloc()ed and created string, caller calls free
+/**
+ * return malloc()ed and created string, caller calls free()
  * exit(1)s on failure (malloc() failed)
+ *
+ * FIXME: realloc(), not malloc()
+ * FIXME: len+2 may overflow in malloc(), fix
+ *
+ * @param   fmt:     format string, as specified in the manpage (%c is ctime
+ *                   for example)
+ * @param   output:  place to store the output string pointer at
  */
 static void
 format(const char *fmt, char **output)
@@ -235,8 +274,16 @@ format(const char *fmt, char **output)
   *out = 0;
 }
 
-/*
- * ret 0 on success
+/**
+ * @param   fdin       FIXME
+ * @param   fdout      FIXME
+ * @param   pre        FIXME
+ * @param   prelen     FIXME
+ * @param   post       FIXME
+ * @param   postlen    FIXME
+ * @param   emptyline  FIXME
+ *
+ * @return        0 on success, !0 on fail
  */
 static int
 process(int fdin,int fdout,
@@ -289,7 +336,7 @@ process(int fdin,int fdout,
   return 0;
 }
 
-/*
+/**
  *
  */
 int

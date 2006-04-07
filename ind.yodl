@@ -42,7 +42,7 @@ echo "Stage 2, burning image..." nl()
 ind -p "___ " -a " ___" growisofs -Z /dev/hdc=randomcrap.img nl()
 << snip >> nl()
 
-This will produce the output:
+This will produce the output: nl()
 << snip >> nl()
 Stage 1, reconfooberating the ablamatron... nl()
 --> This is a text file nl()
