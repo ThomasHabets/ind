@@ -1,4 +1,4 @@
-$Id$
+$Id: README 1519 2006-04-07 14:09:12Z marvin $
 
  ind
 
@@ -12,6 +12,24 @@ If it makes you feel better, you can think of it as meaning
 
 Example uses
 ------------
+Ex1
+---
+$ ind ls; ind ind ls
+  Makefile
+  README
+  ind
+  ind.1
+  ind.c
+  ind.yodl
+    Makefile
+    README
+    ind
+    ind.1
+    ind.c
+    ind.yodl
+
+Ex2
+---
 Let's say you're running a script that has several stages, each producing
 some status output. Now you can indent the output from the substages.
 

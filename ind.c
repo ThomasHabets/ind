@@ -3,7 +3,7 @@
  *
  * By Thomas Habets <thomas@habets.pp.se>
  *
- * $Id: ind.c 1518 2006-04-07 12:32:34Z marvin $
+ * $Id: ind.c 1519 2006-04-07 14:09:12Z marvin $
  */
 /*
  * (BSD license without advertising clause below)
@@ -51,6 +51,8 @@
 #define STDERR_FILENO   2
 #endif
 
+/* arbitrary maxlength for prefixes and postfixes */
+static const max_indstr_length = 1048576;
 
 static const char *argv0;
 static const float version = 0.1f;
@@ -204,9 +206,6 @@ chomp(char *str)
  * return malloc()ed and created string, caller calls free()
  * exit(1)s on failure (malloc() failed)
  *
- * FIXME: realloc(), not malloc()
- * FIXME: len+2 may overflow in malloc(), fix
- *
  * @param   fmt:     format string, as specified in the manpage (%c is ctime
  *                   for example)
  * @param   output:  place to store the output string pointer at
@@ -246,6 +245,9 @@ format(const char *fmt, char **output)
     }
     len++;
     p++;
+    if (len >= max_indstr_length) {
+      break;
+    }
   }
   if (!(*output = (char*)malloc(len+2))) {
     fprintf(stderr, "%s: %s\n", argv0, strerror(errno));
@@ -275,13 +277,19 @@ format(const char *fmt, char **output)
 }
 
 /**
- * @param   fdin       FIXME
- * @param   fdout      FIXME
- * @param   pre        FIXME
- * @param   prelen     FIXME
- * @param   post       FIXME
- * @param   postlen    FIXME
- * @param   emptyline  FIXME
+ * Main functionality function.
+ * Read from fdin, if crossing a newline add magic.
+ *
+ * emptyline must point to 1 on first call, since the line is empty
+ * before anything is written to it (makes sense).
+ *
+ * @param   fdin       source fd
+ * @param   fdout      destination fd
+ * @param   pre        prefix string
+ * @param   prelen     prefix length (sent for efficiency)
+ * @param   post       postfix string
+ * @param   postlen    postfix length (sent for efficiency)
+ * @param   emptyline  last this function was called, was it an empty line?
  *
  * @return        0 on success, !0 on fail
  */

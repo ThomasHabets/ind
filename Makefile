@@ -1,4 +1,4 @@
-# $Id$
+# $Id: Makefile 1519 2006-04-07 14:09:12Z marvin $
 
 all: ind
 doc: ind.1
