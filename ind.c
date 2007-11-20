@@ -3,7 +3,7 @@
  *
  * By Thomas Habets <thomas@habets.pp.se>
  *
- * $Id: ind.c 1519 2006-04-07 14:09:12Z marvin $
+ * $Id: ind.c 2009 2007-11-20 15:15:08Z marvin $
  */
 /*
  * (BSD license without advertising clause below)
@@ -78,7 +78,7 @@ do_close(int fd)
  * there is a real (non-EINTR) error.
  *
  * Note that if there is a non-EINTR error, this function does not
- * reveal how much has been written.
+ * reveal how much has been written. -- What? Yes it does?
  *
  * @param   fd:  fd to write to
  * @param   buf: data to write
