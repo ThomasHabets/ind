@@ -274,6 +274,10 @@ format(const char *fmt, char **output, int dowarn)
 	break;
       case 0:
 	p--;
+	if (dowarn) {
+	  fprintf(stderr, "%s: String ends in %%. Change to %%%%.\n",
+		  argv0);
+	}
 	break;
       default:
 	if (dowarn) {
