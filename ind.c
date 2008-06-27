@@ -1,14 +1,14 @@
-/*
+/* ind/ind.c
+ *
  * ind
  *
  * By Thomas Habets <thomas@habets.pp.se>
  *
- * $Id: ind.c 2009 2007-11-20 15:15:08Z marvin $
  */
 /*
  * (BSD license without advertising clause below)
  *
- * Copyright (c) 2005 Thomas Habets. All rights reserved.
+ * Copyright (c) 2005-2008 Thomas Habets. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
