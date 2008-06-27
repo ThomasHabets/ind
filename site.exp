@@ -1,0 +1,4 @@
+set tool ind
+set srcdir ./testsuite
+set outdir ./testsuite/logs
+set all 1
