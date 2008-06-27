@@ -32,6 +32,11 @@ ind-%.tar.gz:
             ind-$(shell $(ECHO) $@ | $(SED) 's/.*-//' \
 		| $(SED) 's/\.tar\.gz//') \
             | $(GZIP) -9 > $@
+
+#
+check: ind
+	mkdir testsuite/logs
+	runtest -a
 #
 clean: 
 	rm -f ind
