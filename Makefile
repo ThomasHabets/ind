@@ -28,7 +28,8 @@ ind.1: ind.yodl
 ind-%.tar.gz:
 	$(GIT) archive --format=tar \
             --prefix=$(shell $(ECHO) $@ | $(SED) 's/\.tar\.gz//')/ \
-            v$(shell $(ECHO) $@ | $(SED) 's/.*-//' | $(SED) 's/\.tar\.gz//') \
+            ind-$(shell $(ECHO) $@ | $(SED) 's/.*-//' \
+		| $(SED) 's/\.tar\.gz//') \
             | $(GZIP) -9 > $@
 #
 clean: 
