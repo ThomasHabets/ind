@@ -1,5 +1,10 @@
 # ind/Makefile
 
+ECHO=echo
+SED=sed
+GZIP=gzip
+GIT=git
+
 all: ind
 doc: ind.1
 
@@ -19,6 +24,12 @@ ind: ind.c
 
 ind.1: ind.yodl
 	yodl2man -o $@ $<
+#
+ind-%.tar.gz:
+	$(GIT) archive --format=tar \
+            --prefix=$(shell $(ECHO) $@ | $(SED) 's/\.tar\.gz//')/ \
+            v$(shell $(ECHO) $@ | $(SED) 's/.*-//' | $(SED) 's/\.tar\.gz//') \
+            | $(GZIP) -9 > $@
 #
 clean: 
 	rm -f ind
