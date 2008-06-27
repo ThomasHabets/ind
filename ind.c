@@ -224,6 +224,7 @@ format(const char *fmt, char **output)
       p++;
       switch(*p) {
       case 0:
+	p--;
 	break;
       case 'c':
 	if (-1 == time(&t)) {
@@ -240,6 +241,7 @@ format(const char *fmt, char **output)
 	len += chomp(ct);
 	break;
       default:
+	len++;
 	break;
       }
     }
@@ -259,18 +261,22 @@ format(const char *fmt, char **output)
     if (*p == '%') {
       p++;
       switch(*p) {
-      case 0:
-	break;
       case 'c':
 	strcpy(out,ct);
 	out = index(out,0);
 	break;
+      case '%':
+	*out++ = '%';
+	break;
+      case 0:
+	p--;
+	break;
       default:
 	break;
       }
-      p++;
+    } else {
+      *out++ = *p;
     }
-    *out++ = *p;
     p++;
   }
   *out = 0;
