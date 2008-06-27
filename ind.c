@@ -78,7 +78,7 @@ do_close(int fd)
  * there is a real (non-EINTR) error.
  *
  * Note that if there is a non-EINTR error, this function does not
- * reveal how much has been written. -- What? Yes it does?
+ * reveal how much has been written
  *
  * @param   fd:  fd to write to
  * @param   buf: data to write
