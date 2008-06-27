@@ -212,7 +212,7 @@ chomp(char *str)
  * @param   output:  place to store the output string pointer at
  */
 static void
-format(const char *fmt, char **output)
+format(const char *fmt, char **output, int dowarn)
 {
   int len = 0;
   const char *p = fmt;
@@ -276,6 +276,11 @@ format(const char *fmt, char **output)
 	p--;
 	break;
       default:
+	if (dowarn) {
+	  fprintf(stderr, "%s: Invalid escape char: %%%c. "
+		  "Did you mean %%%%%c?\n",
+		  argv0, *p, *p);
+	}
 	break;
       }
     } else {
@@ -429,13 +434,26 @@ main(int argc, char **argv)
   do_close(s[1]);
   do_close(es[1]);
 
+  {
+    char *tmp;
+    format(prefix, &tmp, 1);
+    free(tmp);
+    format(postfix, &tmp, 1);
+    free(tmp);
+    format(eprefix, &tmp, 1);
+    free(tmp);
+    format(epostfix, &tmp, 1);
+    free(tmp);
+  }
+
   for(;;) {
     char *tmp, *ptmp;
+
     if (nclosed > 1) {
       break;
     }
-    format(prefix, &tmp);
-    format(postfix, &ptmp);
+    format(prefix, &tmp, 0);
+    format(postfix, &ptmp, 0);
     if (-1!=s[0] && process(s[0],STDOUT_FILENO, tmp,strlen(tmp),
 			    ptmp,strlen(ptmp),&emptyline)) {
       nclosed++;
@@ -443,8 +461,8 @@ main(int argc, char **argv)
     }
     free(tmp);
     free(ptmp);
-    format(eprefix, &tmp);
-    format(epostfix, &ptmp);
+    format(eprefix, &tmp, 0);
+    format(epostfix, &ptmp, 0);
     if (-1!=es[0] && process(es[0],STDERR_FILENO, tmp,strlen(tmp),
 			    ptmp,strlen(ptmp), &eemptyline)) {
       nclosed++;
