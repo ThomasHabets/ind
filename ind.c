@@ -452,28 +452,50 @@ main(int argc, char **argv)
 
   for(;;) {
     char *tmp, *ptmp;
+    fd_set fds;
+    struct timeval tv;
+    int n;
 
     if (nclosed > 1) {
       break;
     }
-    format(prefix, &tmp, 0);
-    format(postfix, &ptmp, 0);
-    if (-1!=s[0] && process(s[0],STDOUT_FILENO, tmp,strlen(tmp),
-			    ptmp,strlen(ptmp),&emptyline)) {
-      nclosed++;
-      s[0] = -1;
+
+    FD_ZERO(&fds);
+    if (0 < s[0]) {
+      FD_SET(s[0], &fds);
     }
-    free(tmp);
-    free(ptmp);
-    format(eprefix, &tmp, 0);
-    format(epostfix, &ptmp, 0);
-    if (-1!=es[0] && process(es[0],STDERR_FILENO, tmp,strlen(tmp),
-			    ptmp,strlen(ptmp), &eemptyline)) {
-      nclosed++;
-      es[0] = -1;
+    if (0 < es[0]) {
+      FD_SET(es[0], &fds);
     }
-    free(tmp);
-    free(ptmp);
+    n = select((s[0] > es[0] ? s[0] : es[0]) + 1, &fds, NULL, NULL, NULL);
+
+    if (0 > n) {
+      fprintf(stderr, "%s: select(): %s", argv0, strerror(errno));
+      continue;
+    }
+
+    if (0 < s[0] && FD_ISSET(s[0], &fds)) {
+      format(prefix, &tmp, 0);
+      format(postfix, &ptmp, 0);
+      if (process(s[0],STDOUT_FILENO, tmp,strlen(tmp),
+		  ptmp,strlen(ptmp),&emptyline)) {
+	nclosed++;
+	s[0] = -1;
+      }
+      free(tmp);
+      free(ptmp);
+    }
+    if (0 < es[0] && FD_ISSET(es[0], &fds)) {
+      format(eprefix, &tmp, 0);
+      format(epostfix, &ptmp, 0);
+      if (process(es[0],STDERR_FILENO, tmp,strlen(tmp),
+		  ptmp,strlen(ptmp), &eemptyline)) {
+	nclosed++;
+	es[0] = -1;
+      }
+      free(tmp);
+      free(ptmp);
+    }
   }
   return 0;
 }

@@ -4,6 +4,7 @@ ECHO=echo
 SED=sed
 GZIP=gzip
 GIT=git
+CFLAGS=-Wall -w -g
 
 all: ind
 doc: ind.1
