@@ -40,6 +40,7 @@
 #include <sys/wait.h>
 #include <errno.h>
 #include <time.h>
+#include <assert.h>
 
 #ifndef FILENO_STDIN
 #define STDIN_FILENO    0
@@ -226,6 +227,9 @@ format(const char *fmt, char **output)
       case 0:
 	p--;
 	break;
+      case '%':
+	len++;
+	break;
       case 'c':
 	if (-1 == time(&t)) {
 	  static int done = 0;
@@ -241,11 +245,11 @@ format(const char *fmt, char **output)
 	len += chomp(ct);
 	break;
       default:
-	len++;
 	break;
       }
+    } else {
+      len++;
     }
-    len++;
     p++;
     if (len >= max_indstr_length) {
       break;
@@ -280,6 +284,7 @@ format(const char *fmt, char **output)
     p++;
   }
   *out = 0;
+  assert(strlen(*output) == len);
 }
 
 /**
