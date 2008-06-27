@@ -14,7 +14,7 @@ int main()
 	fflush(stdout);
 	fflush(stderr);
 	sleep(3);
-	fprintf(stderr, "1.1 stdout\n");
+	fprintf(stdout, "1.1 stdout\n");
 	fprintf(stderr, "1.2 stderr\n");
-	fprintf(stderr, "1.3 stdout\n");
+	fprintf(stdout, "1.3 stdout\n");
 }
