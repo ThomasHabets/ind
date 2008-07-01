@@ -69,7 +69,7 @@
 static const size_t max_indstr_length = 1048576;
 
 static const char *argv0;
-static const float version = 0.1f;
+static const float version = 0.11f;
 
 /**
  * EINTR-safe close()
