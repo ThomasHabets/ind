@@ -46,6 +46,10 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+#ifdef __OpenBSD__
+#include <util.h>
+#endif
+
 #ifdef __FreeBSD__
 #include <libutil.h>
 #endif
