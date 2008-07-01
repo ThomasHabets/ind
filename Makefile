@@ -37,7 +37,7 @@ ind-%.tar.gz:
 
 #
 check: ind
-	mkdir testsuite/logs
+	mkdir -p testsuite/logs
 	runtest -a
 #
 clean: 
