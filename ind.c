@@ -33,15 +33,25 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 #include <errno.h>
 #include <time.h>
 #include <assert.h>
+#include <termios.h>
+#include <pty.h>
+#include <utmp.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
+#ifdef __FreeBSD__
+#include <libutil.h>
+#endif
+
+/* Needed for IRIX */
 #ifndef FILENO_STDIN
 #define STDIN_FILENO    0
 #endif
@@ -52,14 +62,15 @@
 #define STDERR_FILENO   2
 #endif
 
-/* arbitrary maxlength for prefixes and postfixes */
-static const max_indstr_length = 1048576;
+/* arbitrary maxlength for prefixes and postfixes. Should be enough */
+static const size_t max_indstr_length = 1048576;
 
 static const char *argv0;
 static const float version = 0.1f;
 
 /**
  * EINTR-safe close()
+ *
  * If close() fails due to anything other than EINTR, the fd is silently
  * leaked.
  *
@@ -115,17 +126,27 @@ safe_write(int fd, const void *buf, size_t len)
  *
  * @param   fd:   stdout fd
  * @param   efd:  stderr fd
- * @param   argc: argc of subprocess
  * @param   argv: argv of subprocess
+ *
  */
 static void
-child(int fd, int efd, int argc, char **argv)
+child(int fd, int efd, char **argv)
 {
-  if ((-1 == dup2(fd, STDOUT_FILENO))
-      || (-1 == dup2(efd, STDERR_FILENO))) {
-    fprintf(stderr, "%s: Unable to dup2(): %s", strerror(errno));
+  if (0 > login_tty(fd)) {
+    fprintf(stderr, "%s: login_tty() failed: %s\n",
+	    argv0, strerror(errno));
+    exit(1);
   }
-  execvp(argv[0],argv);
+
+  /* stderr fd is overwritten to sidechannel */
+  if (-1 == dup2(efd, STDERR_FILENO)) {
+    fprintf(stderr, "%s: dup2(stderr) failed: %s\n",
+	    argv0, strerror(errno));
+    exit(1);
+  }
+
+  do_close(efd);
+  execvp(argv[0], argv);
   fprintf(stderr, "%s: %s: %s\n", argv0, argv[0], strerror(errno));
   exit(1);
 }
@@ -148,6 +169,7 @@ usage(int err)
 	 "\t-h        Show this help text\n"
 	 "\t-p        Prefix stdout (default: \"  \")\n"
 	 "\t-P        Prefix stderr (default: \">>\") \n"
+	 "\t-v        Verbose (repeat -v to increase verbosity)\n"
 	 "Format:\n"
 	 " Normal text, except:\n"
 	 "\t%%%%        Insert %%%%\n"
@@ -157,7 +179,7 @@ usage(int err)
 }
 
 /**
- * just like memchr, but first of any of a set of chars
+ * just like strpbrk(), but haystack is not null-terminated
  *
  * @param  p:       string to search in
  * @param  chars:   characters to look for
@@ -167,14 +189,11 @@ usage(int err)
  *           if not found.
  */
 static char *
-anychr(const char *p, const char *chars, size_t len)
+mempbrk(const char *p, const char *chars, size_t len)
 {
   int c;
   char *ret = NULL;
   char *tmp;
-  if (!*chars) {
-    return NULL;
-  }
 
   for(c = strlen(chars); c; c--) {
     tmp = memchr(p, chars[c-1], len);
@@ -214,7 +233,7 @@ chomp(char *str)
 static void
 format(const char *fmt, char **output, int dowarn)
 {
-  int len = 0;
+  size_t len = 0;
   const char *p = fmt;
   char *out;
   char ct[128];
@@ -252,6 +271,7 @@ format(const char *fmt, char **output, int dowarn)
     }
     p++;
     if (len >= max_indstr_length) {
+      /* this also prevents integer overflows in the malloc */
       break;
     }
   }
@@ -293,7 +313,7 @@ format(const char *fmt, char **output, int dowarn)
     p++;
   }
   *out = 0;
-  assert(strlen(*output) == len);
+  assert(strlen(*output) == (unsigned)len);
 }
 
 /**
@@ -311,39 +331,66 @@ format(const char *fmt, char **output, int dowarn)
  * @param   postlen    postfix length (sent for efficiency)
  * @param   emptyline  last this function was called, was it an empty line?
  *
- * @return        0 on success, !0 on fail
+ * @return        0 on success, !0 on "no more data will be readable ever"
  */
 static int
 process(int fdin,int fdout,
-	const char *pre, int prelen,
-	const char *post, int postlen, int *emptyline)
+	const char *prefix,
+	const char *postfix, int *emptyline)
 {
   int n;
   char buf[128];
 
+  char *pre = 0;
+  char *post = 0;
+
   if (!(n = read(fdin, buf, sizeof(buf)-1))) {
-    return 1;
+    goto errout;
   }
 
-  if (n > 0) {
+  if (0 > n) {
+    switch(errno) {
+      /* non-fatal errors */
+    case EAGAIN:
+    case EINTR:
+      goto okout;
+      
+      /* these mean internal error */
+    case EFAULT:
+    case EINVAL:
+    case EBADF:
+    case EISDIR:
+      fprintf(stderr, "%s: Internal error: read() returned %d (%s)\n",
+	      argv0, errno, strerror(errno));
+      exit(1);
+
+      /* these errors mean we may as well close the whole fd */
+    case EIO:
+    default:
+	goto errout;
+    }
+  } else {
     char *p = buf;
     char *q;
 
-    while ((q = anychr(p,"\r\n",n))) {
+    format(prefix, &pre, 0);
+    format(postfix, &post, 0);
+
+    while ((q = mempbrk(p,"\r\n",n))) {
       if (*emptyline) {
-	if (0 > safe_write(fdout,pre,prelen)) {
-	  return 1;
+	if (0 > safe_write(fdout,pre,strlen(pre))) {
+	goto errout;
 	}
 	*emptyline = 0;
       }
       if (0 > safe_write(fdout,p,q-p)) {
-	return 1;
+	goto errout;
       }
-      if (0 > safe_write(fdout,post,postlen)) {
-	return 1;
+      if (0 > safe_write(fdout,post,strlen(post))) {
+	goto errout;
       }
       if (0 > safe_write(fdout,q,1)) {
-	return 1;
+	goto errout;
       }
       *emptyline = 1;
       n-=(q-p+1);
@@ -351,17 +398,26 @@ process(int fdin,int fdout,
     }
     if (n) {
       if (*emptyline) {
-	if (0 > safe_write(fdout,pre,prelen)) {
-	  return 1;
+	if (0 > safe_write(fdout,pre,strlen(pre))) {
+	goto errout;
 	}
 	*emptyline = 0;
       }
       if (0 > safe_write(fdout,p,n)) {
-	return 1;
+	goto errout;
       }
     }
   }
+
+ okout:
+  free(pre);
+  free(post);
   return 0;
+
+ errout:
+  free(pre);
+  free(post);
+  return 1;
 }
 
 /**
@@ -371,24 +427,30 @@ int
 main(int argc, char **argv)
 {
   int c;
-  int s[2];
+  int s01m, s01s;
   int es[2];
   char *prefix = "  ";
   char *eprefix = ">>";
   char *postfix = "";
   char *epostfix = "";
-  size_t prefixlen;
-  size_t eprefixlen;
-  size_t postfixlen;
-  size_t epostfixlen;
   unsigned int nclosed = 0;
   int emptyline = 1;
   int eemptyline = 1;
-  int err;
+  int verbose = 0;
+  int childpid;
 
   argv0 = argv[0];
+  if (argv[argc]) {
+    fprintf(stderr,
+	    "%s: Your system is not C compliant!\n"
+	    "%s: C99 5.1.2.2.1 says argv[argc] must be NULL.\n"
+	    "%s: C89 also requires this.\n"
+	    "%s: Please make a bug report to your operating system vendor.\n",
+	    argv0, argv0, argv0, argv0);
+    return 1;
+  }
 
-  while (-1 != (c = getopt(argc, argv, "+hp:a:P:A:"))) {
+  while (-1 != (c = getopt(argc, argv, "+hp:a:P:A:v"))) {
     switch(c) {
     case 'h':
       usage(0);
@@ -404,6 +466,9 @@ main(int argc, char **argv)
     case 'A':
       epostfix = optarg;
       break;
+    case 'v':
+      verbose++;
+      break;
     default:
       usage(1);
     }
@@ -413,32 +478,45 @@ main(int argc, char **argv)
     usage(1);
   }
 
-  prefixlen = strlen(prefix);
-  eprefixlen = strlen(eprefix);
-  postfixlen = strlen(postfix);
-  epostfixlen = strlen(epostfix);
-
-  if (-1 == pipe(s)) {
-    fprintf(stderr, "%s: pipe() failed: ", argv[0], strerror(errno));
+  if (-1 == openpty(&s01m, &s01s, NULL, NULL, NULL)) {
+    fprintf(stderr, "%s: openpty() failed: %s\n", argv0, strerror(errno));
     exit(1);
   }
-  if (-1 == pipe(es)) {
-    fprintf(stderr, "%s: pipe() failed: ", argv[0], strerror(errno));
-    exit(1);
-  }
-
-  switch (fork()) {
-  case 0:
-    do_close(s[0]);
-    child(s[1], es[1], argc, &argv[optind]);
-  case -1:
-    fprintf(stderr, "%s: fork() failed: ", argv[0], strerror(errno));
-    exit(1);
-  }
-  do_close(s[1]);
-  do_close(es[1]);
 
   {
+    char *tty;
+    if (!(tty = ttyname(s01m))) {
+      fprintf(stderr, "%s: ttyname(master) failed: %d %s\n",
+	      argv0, errno, strerror(errno));
+    } else if (verbose) {
+      printf("%s: pty master name: %s\n", argv0, tty);
+    }
+    if (!(tty = ttyname(s01s))) {
+      fprintf(stderr, "%s: ttyname(slave) failed: %d %s\n",
+	      argv0, errno, strerror(errno));
+    } else if (verbose) {
+      printf("%s: pty slave name: %s\n", argv0, tty);
+    }
+  }
+
+  if (-1 == pipe(es)) {
+    fprintf(stderr, "%s: pipe() failed: %s\n", argv[0], strerror(errno));
+    exit(1);
+  }
+
+  switch ((childpid = fork())) {
+  case 0:
+    do_close(es[0]);
+    do_close(s01m);
+    child(s01s, es[1], &argv[optind]);
+  case -1:
+    fprintf(stderr, "%s: fork() failed: %s\n", argv[0], strerror(errno));
+    exit(1);
+  }
+  do_close(s01s);
+  do_close(es[1]);
+
+  { /* print warnings on format */
     char *tmp;
     format(prefix, &tmp, 1);
     free(tmp);
@@ -450,10 +528,9 @@ main(int argc, char **argv)
     free(tmp);
   }
 
+  /* main loop */
   for(;;) {
-    char *tmp, *ptmp;
     fd_set fds;
-    struct timeval tv;
     int n;
 
     if (nclosed > 1) {
@@ -461,43 +538,43 @@ main(int argc, char **argv)
     }
 
     FD_ZERO(&fds);
-    if (0 < s[0]) {
-      FD_SET(s[0], &fds);
+    if (0 < s01m) {
+      FD_SET(s01m, &fds);
     }
     if (0 < es[0]) {
       FD_SET(es[0], &fds);
     }
-    n = select((s[0] > es[0] ? s[0] : es[0]) + 1, &fds, NULL, NULL, NULL);
+    n = select((s01m > es[0] ? s01m : es[0]) + 1, &fds, NULL, NULL, NULL);
 
     if (0 > n) {
       fprintf(stderr, "%s: select(): %s", argv0, strerror(errno));
       continue;
     }
 
-    if (0 < s[0] && FD_ISSET(s[0], &fds)) {
-      format(prefix, &tmp, 0);
-      format(postfix, &ptmp, 0);
-      if (process(s[0],STDOUT_FILENO, tmp,strlen(tmp),
-		  ptmp,strlen(ptmp),&emptyline)) {
+    if (0 < s01m && FD_ISSET(s01m, &fds)) {
+      if (process(s01m,STDOUT_FILENO, prefix,
+		  postfix,&emptyline)) {
 	nclosed++;
-	s[0] = -1;
+	s01m = -1;
       }
-      free(tmp);
-      free(ptmp);
     }
     if (0 < es[0] && FD_ISSET(es[0], &fds)) {
-      format(eprefix, &tmp, 0);
-      format(epostfix, &ptmp, 0);
-      if (process(es[0],STDERR_FILENO, tmp,strlen(tmp),
-		  ptmp,strlen(ptmp), &eemptyline)) {
+      if (process(es[0],STDERR_FILENO, eprefix,
+		  epostfix, &eemptyline)) {
 	nclosed++;
 	es[0] = -1;
       }
-      free(tmp);
-      free(ptmp);
     }
   }
-  return 0;
+  {
+    int status;
+    if (-1 == waitpid(childpid, &status, 0)) {
+      fprintf(stderr, "%s: waitpid(%d): %d %s", argv0,
+	      childpid, errno, strerror(errno));
+      status = 1;
+    }
+    return status;
+  }
 }
 
 /**

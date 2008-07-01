@@ -4,7 +4,9 @@ ECHO=echo
 SED=sed
 GZIP=gzip
 GIT=git
-CFLAGS=-Wall -w -g
+CFLAGS=-Wall -W -g -pedantic -pipe
+LDFLAGS=-Wall -W -g -pedantic
+LIBS=-lutil
 
 all: ind
 doc: ind.1
@@ -20,8 +22,8 @@ install: all
 uninstall:
 	rm -f $(PREFIX)/bin/ind $(PREFIX)/man/man1/
 #
-ind: ind.c
-	$(CC) -Wall -w -g -o $@ $<
+ind: ind.o
+	$(CC) $(LDFLAGS) -o $@ $< $(LIBS)
 
 ind.1: ind.yodl
 	yodl2man -o $@ $<
@@ -39,4 +41,4 @@ check: ind
 	runtest -a
 #
 clean: 
-	rm -f ind
+	rm -f ind *.o

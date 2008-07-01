@@ -1,5 +1,5 @@
-       #include <stdio.h>
-       #include <unistd.h>
+#include <stdio.h>
+#include <unistd.h>
 
 int main()
 {
@@ -13,7 +13,9 @@ int main()
 	fprintf(stdout, "0.3 stdout\n");
 	fflush(stdout);
 	fflush(stderr);
+
 	sleep(3);
+
 	fprintf(stdout, "1.1 stdout\n");
 	fprintf(stderr, "1.2 stderr\n");
 	fprintf(stdout, "1.3 stdout\n");
