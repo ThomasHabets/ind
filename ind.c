@@ -41,7 +41,6 @@
 #include <time.h>
 #include <assert.h>
 #include <termios.h>
-#include <pty.h>
 #include <utmp.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
@@ -49,6 +48,10 @@
 
 #ifdef __FreeBSD__
 #include <libutil.h>
+#endif
+
+#ifdef __linux__
+#include <pty.h>
 #endif
 
 /* Needed for IRIX */
