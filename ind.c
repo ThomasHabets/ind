@@ -42,6 +42,7 @@
 #include <assert.h>
 #include <termios.h>
 #include <utmp.h>
+#include <strings.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -57,6 +58,8 @@
 #ifdef __linux__
 #include <pty.h>
 #endif
+
+#include "pty_solaris.h"
 
 /* Needed for IRIX */
 #ifndef FILENO_STDIN
@@ -78,18 +81,16 @@ static const float version = 0.11f;
 /**
  * EINTR-safe close()
  *
- * If close() fails due to anything other than EINTR, the fd is silently
- * leaked.
- *
  * @param   fd:  fd to close
  */
-static void
+int
 do_close(int fd)
 {
   int err;
   do {
     err = close(fd);
   } while ((-1 == err) && (errno = EINTR)); 
+  return err;
 }
 
 /**
@@ -492,12 +493,18 @@ main(int argc, char **argv)
 
   {
     char *tty;
+#ifdef CONSTANT_PTSMASTER
+    if (verbose) {
+      printf("%s: pty master name: %s\n", argv0, CONSTANT_PTSMASTER);
+    }
+#else
     if (!(tty = ttyname(s01m))) {
       fprintf(stderr, "%s: ttyname(master) failed: %d %s\n",
 	      argv0, errno, strerror(errno));
     } else if (verbose) {
       printf("%s: pty master name: %s\n", argv0, tty);
     }
+#endif
     if (!(tty = ttyname(s01s))) {
       fprintf(stderr, "%s: ttyname(slave) failed: %d %s\n",
 	      argv0, errno, strerror(errno));

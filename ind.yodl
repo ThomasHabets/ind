@@ -15,6 +15,7 @@ startdit()
 	dit(-h) Show help text
 	dit(-p fmt) Prefix stdout (default: "  ")
 	dit(-P fmt) Prefix stderr (default: ">>")
+	dit(-v) Increase verbosity (i.e. output more status/debug messages)
 enddit()
 
 	Format is normal text, except for '%' which is the escape character.

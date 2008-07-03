@@ -3,8 +3,10 @@
 
 int main()
 {
-	//setvbuf(stdout, (char *)NULL, _IOLBF, 0);
-	//setvbuf(stderr, (char *)NULL, _IOLBF, 0);
+	if (0) {
+		setvbuf(stdout, (char *)NULL, _IOLBF, 0);
+		setvbuf(stderr, (char *)NULL, _IOLBF, 0);
+	}
 
 	fprintf(stdout, "0.1 stdout\n");
 	sleep(1);
@@ -19,4 +21,6 @@ int main()
 	fprintf(stdout, "1.1 stdout\n");
 	fprintf(stderr, "1.2 stderr\n");
 	fprintf(stdout, "1.3 stdout\n");
+
+	return 0;
 }
