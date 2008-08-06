@@ -62,7 +62,7 @@
 #include "pty_solaris.h"
 
 /* Needed for IRIX */
-#ifndef FILENO_STDIN
+#ifndef STDIN_FILENO
 #define STDIN_FILENO    0
 #endif
 #ifndef STDOUT_FILENO
@@ -529,6 +529,7 @@ main(int argc, char **argv)
   }
   do_close(s01s);
   do_close(es[1]);
+  do_close(STDIN_FILENO);
 
   { /* print warnings on format */
     char *tmp;
