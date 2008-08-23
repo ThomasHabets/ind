@@ -5,10 +5,25 @@ ind/README
     By Thomas Habets <thomas@habets.pp.se>
     http://www.habets.pp.se/synscan/
 
+
 Why the name 'ind'?
 -------------------
 If it makes you feel better, you can think of it as meaning
 "Indent to make reading output Not-Difficult".
+
+
+What does it do?
+----------------
+When you prefix a command with 'ind' every line that the program
+outputs can be prefixed and postfixed by a short string.
+
+Ind works best with normal line-based programs. It will work with
+fullscreen programs such as less or emacs, but they will display a bit
+weird. Usually it will look good after a redraw (Ctrl-L), but for ind
+to work properly with fullscreen (ncurses) things it would have to
+implement a terminal emulator (such as vt100). At the moment this is
+outside the scope of ind.
+
 
 Example uses
 ------------
