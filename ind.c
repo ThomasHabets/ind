@@ -78,6 +78,7 @@ static const size_t max_indstr_length = 1048576;
 
 static const char *argv0;
 static const float version = 0.11f;
+static int verbose = 0;
 
 /**
  * EINTR-safe close()
@@ -133,7 +134,7 @@ safe_write(int fd, const void *buf, size_t len)
 /**
  * Set up stdout/stderr and exec subprocess
  *
- * @param   fd:   stdout fd
+ * @param   fd:   stdin/stdout fd
  * @param   efd:  stderr fd
  * @param   argv: argv of subprocess
  *
@@ -158,6 +159,29 @@ child(int fd, int efd, char **argv)
   execvp(argv[0], argv);
   fprintf(stderr, "%s: %s: %s\n", argv0, argv[0], strerror(errno));
   exit(1);
+}
+
+/**
+ * 
+ *
+ * 
+ */
+static struct termios orig_stdin_tio;
+static int orig_stdin_tio_ok = 0;
+static void
+reset_stdin_terminal()
+{
+  if (!orig_stdin_tio_ok) {
+    return;
+  }
+
+  /* reset terminal settings */
+  if (tcsetattr(STDIN_FILENO, TCSADRAIN, &orig_stdin_tio)) {
+    fprintf(stderr,
+	    "%s: Unable to restore terminal settings:"
+	    "%s: tcsetattr(STDIN_FILENO, TCSADRAIN, orig): %s",
+	    argv0, argv0, strerror(errno));
+  }
 }
 
 /**
@@ -287,6 +311,7 @@ format(const char *fmt, char **output, int dowarn)
   }
   if (!(*output = (char*)malloc(len+2))) {
     fprintf(stderr, "%s: %s\n", argv0, strerror(errno));
+    reset_stdin_terminal();
     exit(1);
   }
   out = *output;
@@ -446,8 +471,8 @@ main(int argc, char **argv)
   unsigned int nclosed = 0;
   int emptyline = 1;
   int eemptyline = 1;
-  int verbose = 0;
   int childpid;
+  int stdin_fileno = STDIN_FILENO;
   struct winsize *wsp;
   struct termios *tiop;
 
@@ -582,46 +607,96 @@ main(int argc, char **argv)
   }
   do_close(s01s);
   do_close(es[1]);
-  do_close(STDIN_FILENO);
+
+  /* Raw stdin */
+  if (tcgetattr(stdin_fileno, &orig_stdin_tio)) {
+    /* if we can't get stdin attrs, don't even try to set them */
+  } else {
+    orig_stdin_tio_ok = 1;
+
+    if (!tcgetattr(stdin_fileno, tiop)) {
+      tiop->c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL|IXON);
+      tiop->c_oflag |= (OPOST|ONLCR); /* But with cr+nl on output */
+      tiop->c_lflag &= ~(ECHO|ECHONL|ICANON|ISIG|IEXTEN);
+      
+      /*tiop->c_cflag  = CLOCAL | CREAD; */
+      tiop->c_cc[VMIN]  = 1;
+      tiop->c_cc[VTIME] = 0;
+      
+      if (tcsetattr(stdin_fileno, TCSADRAIN, tiop)) {
+	fprintf(stderr, "%s: tcsetattr(stdin, ) failed: %s\n",
+		argv[0], strerror(errno));
+	exit(1);
+      }
+    }
+  }
 
   /* main loop */
   for(;;) {
     fd_set fds;
     int n;
+    int fdmax;
 
-    if (nclosed > 1) {
+    fdmax = -1;
+
+    /* done when both channels to/from child are closed */
+    if (nclosed == 2) {
       break;
     }
 
     FD_ZERO(&fds);
-    if (0 < s01m) {
+    if (-1 < s01m) {
       FD_SET(s01m, &fds);
+      fdmax = fdmax > s01m ? fdmax : s01m;
     }
-    if (0 < es[0]) {
+    if (-1 < es[0]) {
       FD_SET(es[0], &fds);
+      fdmax = fdmax > es[0] ? fdmax : es[0];
     }
-    n = select((s01m > es[0] ? s01m : es[0]) + 1, &fds, NULL, NULL, NULL);
+    if (-1 < stdin_fileno) {
+      FD_SET(stdin_fileno, &fds);
+      fdmax = fdmax > stdin_fileno ? fdmax : stdin_fileno;
+    }
+
+    n = select(fdmax + 1, &fds, NULL, NULL, NULL);
 
     if (0 > n) {
       fprintf(stderr, "%s: select(): %s", argv0, strerror(errno));
       continue;
     }
 
-    if (0 < s01m && FD_ISSET(s01m, &fds)) {
-      if (process(s01m,STDOUT_FILENO, prefix,
+    if (-1 < s01m && FD_ISSET(s01m, &fds)) {
+      if (process(s01m, STDOUT_FILENO, prefix,
 		  postfix,&emptyline)) {
 	nclosed++;
 	s01m = -1;
       }
     }
-    if (0 < es[0] && FD_ISSET(es[0], &fds)) {
-      if (process(es[0],STDERR_FILENO, eprefix,
+
+    if (-1 < es[0] && FD_ISSET(es[0], &fds)) {
+      if (process(es[0], STDERR_FILENO, eprefix,
 		  epostfix, &eemptyline)) {
 	nclosed++;
 	es[0] = -1;
       }
     }
+
+    if (-1 < stdin_fileno && FD_ISSET(stdin_fileno, &fds)) {
+      char buf[128];
+      ssize_t n;
+
+      n = read(stdin_fileno, buf, sizeof(buf));
+      if (!n) {
+	stdin_fileno = -1;
+      } else {
+	/* FIXME: this should be nonblocking to not deadlock with child */
+	write(s01m, buf, n);
+      }
+    }
   }
+
+  reset_stdin_terminal();
+
   {
     int status;
     if (-1 == waitpid(childpid, &status, 0)) {
