@@ -616,10 +616,15 @@ main(int argc, char **argv)
 
     if (!tcgetattr(stdin_fileno, tiop)) {
       tiop->c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL|IXON);
-      tiop->c_oflag |= (OPOST|ONLCR); /* But with cr+nl on output */
+      tiop->c_oflag |= (OPOST|ONLCR);
       tiop->c_lflag &= ~(ECHO|ECHONL|ICANON|ISIG|IEXTEN);
-      
-      /*tiop->c_cflag  = CLOCAL | CREAD; */
+
+      /* change to 8bit? */
+      if (0) {
+	tiop->c_cflag &= ~(CSIZE | PARENB);
+	tiop->c_cflag |= CS8;
+      }
+
       tiop->c_cc[VMIN]  = 1;
       tiop->c_cc[VTIME] = 0;
       
