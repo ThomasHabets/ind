@@ -34,7 +34,6 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
-#include <alloca.h>
 #include <unistd.h>
 #include <string.h>
 #include <unistd.h>
@@ -58,6 +57,10 @@
 
 #ifdef __linux__
 #include <pty.h>
+#endif
+
+#if defined (__SVR4) && defined (__sun)
+#include <alloca.h>
 #endif
 
 #include "pty_solaris.h"
