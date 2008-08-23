@@ -53,8 +53,8 @@ int do_close(int fd);
  * taken from pts(7D), and added error handling
  */
 int
-openpty(int  *amaster,  int  *aslave,  char  *name, struct termios
-	*termp, struct winsize * winp)
+openpty(int  *amaster, int *aslave, char *name,
+	struct termios *termp, struct winsize *winp)
 {
   int fds = -1, fdm = -1;
   int saved_errno = 0;
@@ -82,6 +82,16 @@ openpty(int  *amaster,  int  *aslave,  char  *name, struct termios
   }
   *amaster = fdm;
   *aslave = fds;
+  if (termp) {
+    if (0 > tcsetattr(fds, TCSADRAIN, termp)) {
+      goto errout;
+    }
+  }
+  if (winp) {
+    if (0 > ioctl(fds, TIOCSWINSZ, winp)) {
+      goto errout;
+    }
+  }
   return 0;
 
  errout:

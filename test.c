@@ -1,5 +1,26 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#include <termios.h>
+
+
+static void
+terminfo(int fd)
+{
+	struct winsize w;
+
+	printf("fd: %d\n", fd);
+	if (!isatty(fd)) {
+		printf("\tNot a tty!\n");
+		return;
+	}
+	if (-1 == ioctl(fd, TIOCGWINSZ, &w)) {
+		printf("\tioctl(TIOCGWINSZ) fail: %s\n", strerror(errno));
+		return;
+	}
+	printf("\tSize: %dx%d\n", w.ws_row, w.ws_col);
+}
 
 int main()
 {
@@ -7,6 +28,9 @@ int main()
 		setvbuf(stdout, (char *)NULL, _IOLBF, 0);
 		setvbuf(stderr, (char *)NULL, _IOLBF, 0);
 	}
+	terminfo(0);
+	terminfo(1);
+	terminfo(2);
 
 	fprintf(stdout, "0.1 stdout\n");
 	sleep(1);

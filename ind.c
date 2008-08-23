@@ -34,6 +34,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <alloca.h>
 #include <unistd.h>
 #include <string.h>
 #include <unistd.h>
@@ -236,6 +237,7 @@ chomp(char *str)
  *
  * @param   fmt:     format string, as specified in the manpage (%c is ctime
  *                   for example)
+ * @param   dowarn:  Print warnings on format to stderr
  * @param   output:  place to store the output string pointer at
  */
 static void
@@ -446,6 +448,8 @@ main(int argc, char **argv)
   int eemptyline = 1;
   int verbose = 0;
   int childpid;
+  struct winsize *wsp;
+  struct termios *tiop;
 
   argv0 = argv[0];
   if (argv[argc]) {
@@ -486,7 +490,56 @@ main(int argc, char **argv)
     usage(1);
   }
 
-  if (-1 == openpty(&s01m, &s01s, NULL, NULL, NULL)) {
+  { /* print warnings on format */
+    char *tmp;
+    format(prefix, &tmp, 1);
+    free(tmp);
+    format(postfix, &tmp, 1);
+    free(tmp);
+    format(eprefix, &tmp, 1);
+    free(tmp);
+    format(epostfix, &tmp, 1);
+    free(tmp);
+  }
+
+  /* set up winsize */
+  wsp = alloca(sizeof(struct winsize));
+  if (0 > ioctl(STDOUT_FILENO, TIOCGWINSZ, wsp)) {
+    /* if parent terminal (if even a terminal at all) won't give up info
+     * on terminal, neither will we.
+     */
+    wsp = 0;
+  }
+
+  if (wsp) {
+    int sub = 0;
+    char *tmp;
+
+    format(prefix, &tmp, 0);
+    sub += strlen(tmp);
+    free(tmp);
+
+    format(postfix, &tmp, 0);
+    sub += strlen(tmp);
+    free(tmp);
+
+    if (sub >= wsp->ws_col) {
+      wsp = 0;
+    } else {
+      wsp->ws_col -= sub;
+    }
+  }
+
+  /* set up termios */
+  tiop = alloca(sizeof(struct termios));
+  if (0 > tcgetattr(STDOUT_FILENO, tiop)) {
+    /* if parent terminal (if even a terminal at all) won't give up info
+     * on terminal, neither will we.
+     */
+    tiop = 0;
+  }
+
+  if (-1 == openpty(&s01m, &s01s, NULL, tiop, wsp)) {
     fprintf(stderr, "%s: openpty() failed: %s\n", argv0, strerror(errno));
     exit(1);
   }
@@ -530,18 +583,6 @@ main(int argc, char **argv)
   do_close(s01s);
   do_close(es[1]);
   do_close(STDIN_FILENO);
-
-  { /* print warnings on format */
-    char *tmp;
-    format(prefix, &tmp, 1);
-    free(tmp);
-    format(postfix, &tmp, 1);
-    free(tmp);
-    format(eprefix, &tmp, 1);
-    free(tmp);
-    format(epostfix, &tmp, 1);
-    free(tmp);
-  }
 
   /* main loop */
   for(;;) {
