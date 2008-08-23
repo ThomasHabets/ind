@@ -49,9 +49,20 @@ int main()
 		fprintf(stdout, "1.3 stdout\n");
 	}
 
+	/* \r test */
+	sleep(1);
+	if (1) {
+		fprintf(stdout, "Progress: wait...");
+		fflush(stdout);
+		sleep(1);
+		fprintf(stdout, "\rProgress: done   \n");
+	}
+
+	/* stdin test */
 	if (1) {
 		int nana;
-		printf("Give me an integer:\n");
+		printf("Give me an integer: ");
+		fflush(stdout);
 		scanf("%d", &nana);
 		printf("Value: %d\n", nana);
 	}
