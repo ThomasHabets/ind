@@ -20,9 +20,18 @@ outputs can be prefixed and postfixed by a short string.
 Ind works best with normal line-based programs. It will work with
 fullscreen programs such as less or emacs, but they will display a bit
 weird. Usually it will look good after a redraw (Ctrl-L), but for ind
-to work properly with fullscreen (ncurses) things it would have to
+to work properly with fullscreen (ncurses) programs it would have to
 implement a terminal emulator (such as vt100). At the moment this is
 outside the scope of ind.
+
+Note that because some programs will behave differently if stdout is
+not tty. This means that if you run one of these commands:
+ $ ind ./test | cat                  
+ $ ./test
+(where test is the test program in the ind source tree)
+The order of the output will be "wrong". But it will be *the same*
+order. Ind will not change anything. It could, but that could have
+unintended side effects. So it doesn't.
 
 
 Example uses
@@ -44,6 +53,25 @@ $ ind ls; ind ind ls
     ind.yodl
 
 Ex2
+---
+$ ind ./test
+  fd: 0
+        Size: 32x123
+  fd: 1
+        Size: 32x123
+  fd: 2
+        Not a tty!
+  0.1 stdout
+>>0.2 stderr
+  0.3 stdout
+  1.1 stdout
+  1.3 stdout
+>>1.2 stderr
+  Progress: done
+  Give me an integer: 123
+  Value: 123
+
+Ex3
 ---
 Let's say you're running a script that has several stages, each producing
 some status output. Now you can indent the output from the substages.

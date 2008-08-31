@@ -88,7 +88,7 @@ static int verbose = 0;
  *
  * @param   fd:  fd to close
  */
-int
+static int
 do_close(int fd)
 {
   int err;
@@ -96,6 +96,41 @@ do_close(int fd)
     err = close(fd);
   } while ((-1 == err) && (errno = EINTR)); 
   return err;
+}
+
+/**
+ * close three fds, and make sure not to double-close in case they are the
+ * same.
+ *
+ */
+static int
+do_close3(int fd0, int fd1, int fd2)
+{
+  int ret = 0;
+  
+  ret += do_close(fd0);
+  if (fd0 != fd1) {
+    ret += do_close(fd1);
+  }
+
+  if ((fd2 != fd0) && (fd2 != fd1)) {
+    ret += do_close(fd2);
+  }
+  return ret;
+}
+
+/**
+ *
+ *
+ */
+static void
+do_fdset(fd_set *fds, int fd, int *fdmax)
+{
+  if (0 > fd) {
+    return;
+  }
+  FD_SET(fd, fds);
+  *fdmax = *fdmax > fd ? *fdmax : fd;
 }
 
 /**
@@ -141,24 +176,54 @@ safe_write(int fd, const void *buf, size_t len)
  * @param   efd:  stderr fd
  * @param   argv: argv of subprocess
  *
+ * does not return. Runs execvp() or exit()
  */
 static void
-child(int fd, int efd, char **argv)
+child(int fdi, int fdo, int fde, char **argv)
 {
-  if (0 > login_tty(fd)) {
-    fprintf(stderr, "%s: login_tty() failed: %s\n",
-	    argv0, strerror(errno));
+  int fdt;
+
+  /* get a potential terminal to do login_tty() on */
+  fdt = fdo;
+  if (!isatty(fdt) && isatty(fdi)) {
+    fdt = fdi;
+  }
+  if (!isatty(fdt) && isatty(fde)) {
+    fdt = fde;
+  }
+
+  /* login_tty() */
+  if (isatty(fdt)) {
+    if (0 > (fdt = dup(fdt))) {
+      fprintf(stderr, "%s: dup(%d) failed: %s\n",
+	      argv0, fdt, strerror(errno));
+      exit(1);
+    }
+    if (0 > login_tty(fdt)) {
+      fprintf(stderr, "%s: login_tty(%d) failed: %s\n",
+	      argv0, fdt, strerror(errno));
+      exit(1);
+    }
+  }
+
+  /* login_tty() screwed up our fds, set them right again */
+  if (-1 == dup2(fdi, STDIN_FILENO)) {
+    fprintf(stderr, "%s: dup2(%d, stdin) failed: %s\n",
+	    argv0, fdi, strerror(errno));
+    exit(1);
+  }
+  if (-1 == dup2(fdo, STDOUT_FILENO)) {
+    fprintf(stderr, "%s: dup2(%d, stdout) failed: %s\n",
+	    argv0, fdo, strerror(errno));
+    exit(1);
+  }
+  if (-1 == dup2(fde, STDERR_FILENO)) {
+    fprintf(stderr, "%s: dup2(%d, stderr) failed: %s\n",
+	    argv0, fde, strerror(errno));
     exit(1);
   }
 
-  /* stderr fd is overwritten to sidechannel */
-  if (-1 == dup2(efd, STDERR_FILENO)) {
-    fprintf(stderr, "%s: dup2(stderr) failed: %s\n",
-	    argv0, strerror(errno));
-    exit(1);
-  }
-
-  do_close(efd);
+  do_close3(fdi, fdo, fde);
   execvp(argv[0], argv);
   fprintf(stderr, "%s: %s: %s\n", argv0, argv[0], strerror(errno));
   exit(1);
@@ -461,12 +526,78 @@ process(int fdin,int fdout,
 /**
  *
  */
+static void
+setup_pty(const char *prefix, const char *postfix,
+	  int *s01m, int *s01s)
+{
+  /* set up winsize */
+  struct winsize *wsp;
+  struct termios *tiop;
+  
+  wsp = alloca(sizeof(struct winsize));
+  if (0 > ioctl(STDOUT_FILENO, TIOCGWINSZ, wsp)) {
+    /* if parent terminal (if even a terminal at all) won't give up info
+     * on terminal, neither will we.
+     */
+    wsp = 0;
+  }
+  if (!wsp) {
+    wsp = alloca(sizeof(struct winsize));
+    if (0 > ioctl(STDIN_FILENO, TIOCGWINSZ, wsp)) {
+      wsp = 0;
+    }
+  }
+    
+  if (wsp) {
+    int sub = 0;
+    char *tmp;
+      
+    format(prefix, &tmp, 0);
+    sub += strlen(tmp);
+    free(tmp);
+      
+    format(postfix, &tmp, 0);
+    sub += strlen(tmp);
+    free(tmp);
+      
+    if (sub >= wsp->ws_col) {
+      wsp = 0;
+    } else {
+      wsp->ws_col -= sub;
+    }
+  }
+
+  /* set up termios */
+  tiop = alloca(sizeof(struct termios));
+  if (0 > tcgetattr(STDOUT_FILENO, tiop)) {
+    /* if parent terminal (if even a terminal at all) won't give up info
+     * on terminal, neither will we.
+     */
+    tiop = 0;
+  }
+  if (!tiop) {
+    tiop = alloca(sizeof(struct termios));
+    if (0 > tcgetattr(STDIN_FILENO, tiop)) {
+      tiop = 0;
+    }
+  }
+    
+  if (-1 == openpty(s01m, s01s, NULL, tiop, wsp)) {
+    fprintf(stderr, "%s: openpty() failed: %s\n", argv0, strerror(errno));
+    exit(1);
+  }
+}
+
+/**
+ *
+ */
 int
 main(int argc, char **argv)
 {
   int c;
-  int s01m, s01s;
-  int es[2];
+  int ptym = -1,ptys = -1;
+  int child_stdin, child_stdout, child_stderr;
+  int ind_stdin, ind_stdout, ind_stderr;
   char *prefix = "  ";
   char *eprefix = ">>";
   char *postfix = "";
@@ -528,92 +659,83 @@ main(int argc, char **argv)
     free(tmp);
   }
 
+  /* create communication pipes (stderr is always in a pipe) */
   {
-    /* set up winsize */
-    struct winsize *wsp;
-    struct termios *tiop;
+    int pip_stdin[2];
+    int pip_stdout[2];
 
-    wsp = alloca(sizeof(struct winsize));
-    if (0 > ioctl(STDOUT_FILENO, TIOCGWINSZ, wsp)) {
-      /* if parent terminal (if even a terminal at all) won't give up info
-       * on terminal, neither will we.
-       */
-      wsp = 0;
+    if (isatty(STDIN_FILENO) || isatty(STDOUT_FILENO)) {
+      setup_pty(prefix, postfix, &ptym, &ptys);
     }
-    
-    if (wsp) {
-      int sub = 0;
-      char *tmp;
-      
-      format(prefix, &tmp, 0);
-      sub += strlen(tmp);
-      free(tmp);
-      
-      format(postfix, &tmp, 0);
-      sub += strlen(tmp);
-      free(tmp);
-      
-      if (sub >= wsp->ws_col) {
-	wsp = 0;
-      } else {
-	wsp->ws_col -= sub;
+
+    if (isatty(STDIN_FILENO)) {
+      child_stdin = ptys;
+      ind_stdin = ptym;
+    } else {
+      if (-1 == pipe(pip_stdin)) {
+	fprintf(stderr, "%s: pipe() failed: %s\n", argv[0], strerror(errno));
+	exit(1);
       }
+      child_stdin = pip_stdin[0];
+      ind_stdin = pip_stdin[1];
     }
 
-    /* set up termios */
-    tiop = alloca(sizeof(struct termios));
-    if (0 > tcgetattr(STDOUT_FILENO, tiop)) {
-      /* if parent terminal (if even a terminal at all) won't give up info
-       * on terminal, neither will we.
-       */
-      tiop = 0;
-    }
-    
-    if (-1 == openpty(&s01m, &s01s, NULL, tiop, wsp)) {
-      fprintf(stderr, "%s: openpty() failed: %s\n", argv0, strerror(errno));
-      exit(1);
+    if (isatty(STDOUT_FILENO)) {
+      child_stdout = ptys;
+      ind_stdout = ptym;
+    } else {
+      if (-1 == pipe(pip_stdout)) {
+	fprintf(stderr, "%s: pipe() failed: %s\n", argv[0], strerror(errno));
+	exit(1);
+      }
+      child_stdout = pip_stdout[1];
+      ind_stdout = pip_stdout[0];
     }
   }
 
-  /* check tty name */
-  {
+  /* check tty name, if we're using ptys  */
+  if (0 <= ptym) {
     char *tty;
 #ifdef CONSTANT_PTSMASTER
     if (verbose) {
       printf("%s: pty master name: %s\n", argv0, CONSTANT_PTSMASTER);
     }
 #else
-    if (!(tty = ttyname(s01m))) {
-      fprintf(stderr, "%s: ttyname(master) failed: %d %s\n",
-	      argv0, errno, strerror(errno));
+    if (!(tty = ttyname(ptym))) {
+      fprintf(stderr, "%s: ttyname(master=%d) failed: %d %s\n",
+	      argv0, ptym, errno, strerror(errno));
     } else if (verbose) {
-      printf("%s: pty master name: %s\n", argv0, tty);
+      fprintf(stderr, "%s: pty master name: %s\n", argv0, tty);
     }
 #endif
-    if (!(tty = ttyname(s01s))) {
-      fprintf(stderr, "%s: ttyname(slave) failed: %d %s\n",
-	      argv0, errno, strerror(errno));
+    if (!(tty = ttyname(ptys))) {
+      fprintf(stderr, "%s: ttyname(slave=%d) failed: %d %s\n",
+	      argv0, ptys, errno, strerror(errno));
     } else if (verbose) {
-      printf("%s: pty slave name: %s\n", argv0, tty);
+      fprintf(stderr, "%s: pty slave name: %s\n", argv0, tty);
     }
   }
 
-  if (-1 == pipe(es)) {
-    fprintf(stderr, "%s: pipe() failed: %s\n", argv[0], strerror(errno));
-    exit(1);
+  /* create stderr pipe */
+  {
+    int es[2];
+    if (-1 == pipe(es)) {
+      fprintf(stderr, "%s: pipe() failed: %s\n", argv[0], strerror(errno));
+      exit(1);
+    }
+    child_stderr = es[1];
+    ind_stderr = es[0];
   }
 
   switch ((childpid = fork())) {
   case 0:
-    do_close(es[0]);
-    do_close(s01m);
-    child(s01s, es[1], &argv[optind]);
+    do_close3(ind_stdin, ind_stdout, ind_stderr);
+    child(child_stdin, child_stdout, child_stderr, &argv[optind]);
   case -1:
     fprintf(stderr, "%s: fork() failed: %s\n", argv[0], strerror(errno));
     exit(1);
   }
-  do_close(s01s);
-  do_close(es[1]);
+  do_close3(child_stdin, child_stdout, child_stderr);
 
   /* Raw stdin */
   if (tcgetattr(stdin_fileno, &orig_stdin_tio)) {
@@ -659,18 +781,9 @@ main(int argc, char **argv)
     }
 
     FD_ZERO(&fds);
-    if (-1 < s01m) {
-      FD_SET(s01m, &fds);
-      fdmax = fdmax > s01m ? fdmax : s01m;
-    }
-    if (-1 < es[0]) {
-      FD_SET(es[0], &fds);
-      fdmax = fdmax > es[0] ? fdmax : es[0];
-    }
-    if (-1 < stdin_fileno) {
-      FD_SET(stdin_fileno, &fds);
-      fdmax = fdmax > stdin_fileno ? fdmax : stdin_fileno;
-    }
+    do_fdset(&fds, ind_stdout, &fdmax);
+    do_fdset(&fds, ind_stderr, &fdmax);
+    do_fdset(&fds, stdin_fileno, &fdmax);
 
     n = select(fdmax + 1, &fds, NULL, NULL, NULL);
 
@@ -679,19 +792,19 @@ main(int argc, char **argv)
       continue;
     }
 
-    if (-1 < s01m && FD_ISSET(s01m, &fds)) {
-      if (process(s01m, STDOUT_FILENO, prefix,
+    if (-1 < ind_stdout && FD_ISSET(ind_stdout, &fds)) {
+      if (process(ind_stdout, STDOUT_FILENO, prefix,
 		  postfix,&emptyline)) {
 	nclosed++;
-	s01m = -1;
+	ind_stdout = -1;
       }
     }
 
-    if (-1 < es[0] && FD_ISSET(es[0], &fds)) {
-      if (process(es[0], STDERR_FILENO, eprefix,
+    if (-1 < ind_stderr && FD_ISSET(ind_stderr, &fds)) {
+      if (process(ind_stderr, STDERR_FILENO, eprefix,
 		  epostfix, &eemptyline)) {
 	nclosed++;
-	es[0] = -1;
+	ind_stderr = -1;
       }
     }
 
@@ -704,7 +817,7 @@ main(int argc, char **argv)
 	stdin_fileno = -1;
       } else {
 	/* FIXME: this should be nonblocking to not deadlock with child */
-	write(s01m, buf, n);
+	write(ind_stdin, buf, n);
       }
     }
   }
