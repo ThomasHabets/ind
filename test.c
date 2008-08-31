@@ -10,6 +10,7 @@ static void
 terminfo(int fd)
 {
 	struct winsize w;
+	char *tty;
 
 	printf("fd: %d\n", fd);
 	if (!isatty(fd)) {
@@ -19,6 +20,10 @@ terminfo(int fd)
 	if (-1 == ioctl(fd, TIOCGWINSZ, &w)) {
 		printf("\tioctl(TIOCGWINSZ) fail: %s\n", strerror(errno));
 		return;
+	}
+	tty = ttyname(fd);
+	if (tty) {
+		printf("\tttyname(): %s\n", tty);
 	}
 	printf("\tSize: %dx%d\n", w.ws_row, w.ws_col);
 }

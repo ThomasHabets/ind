@@ -170,6 +170,33 @@ safe_write(int fd, const void *buf, size_t len)
 }
 
 /**
+ *
+ */
+static void
+print_ttyname(const char *fdname, int fdm, int fds)
+{
+  char *tty;
+#ifdef CONSTANT_PTSMASTER
+  if (verbose) {
+    printf("%s: %s pty master name: %s\n", argv0, fdname, CONSTANT_PTSMASTER);
+  }
+#else
+  if (!(tty = ttyname(fdm))) {
+    fprintf(stderr, "%s: %s ttyname(master=%d) failed: %d %s\n",
+	    argv0, fdname, fdm, errno, strerror(errno));
+  } else if (verbose) {
+    fprintf(stderr, "%s: %s pty master name: %s\n", argv0, fdname, tty);
+  }
+#endif
+  if (!(tty = ttyname(fds))) {
+    fprintf(stderr, "%s: %s ttyname(slave=%d) failed: %d %s\n",
+	    argv0, fdname, fds, errno, strerror(errno));
+  } else if (verbose) {
+    fprintf(stderr, "%s: %s pty slave name: %s\n", argv0, fdname, tty);
+  }
+}
+
+/**
  * Set up stdout/stderr and exec subprocess
  *
  * @param   fd:   stdin/stdout fd
@@ -528,6 +555,7 @@ process(int fdin,int fdout,
  */
 static void
 setup_pty(const char *prefix, const char *postfix,
+	  int realttyfd, 
 	  int *s01m, int *s01s)
 {
   /* set up winsize */
@@ -535,17 +563,11 @@ setup_pty(const char *prefix, const char *postfix,
   struct termios *tiop;
   
   wsp = alloca(sizeof(struct winsize));
-  if (0 > ioctl(STDOUT_FILENO, TIOCGWINSZ, wsp)) {
+  if (0 > ioctl(realttyfd, TIOCGWINSZ, wsp)) {
     /* if parent terminal (if even a terminal at all) won't give up info
      * on terminal, neither will we.
      */
     wsp = 0;
-  }
-  if (!wsp) {
-    wsp = alloca(sizeof(struct winsize));
-    if (0 > ioctl(STDIN_FILENO, TIOCGWINSZ, wsp)) {
-      wsp = 0;
-    }
   }
     
   if (wsp) {
@@ -569,17 +591,11 @@ setup_pty(const char *prefix, const char *postfix,
 
   /* set up termios */
   tiop = alloca(sizeof(struct termios));
-  if (0 > tcgetattr(STDOUT_FILENO, tiop)) {
+  if (0 > tcgetattr(realttyfd, tiop)) {
     /* if parent terminal (if even a terminal at all) won't give up info
      * on terminal, neither will we.
      */
     tiop = 0;
-  }
-  if (!tiop) {
-    tiop = alloca(sizeof(struct termios));
-    if (0 > tcgetattr(STDIN_FILENO, tiop)) {
-      tiop = 0;
-    }
   }
     
   if (-1 == openpty(s01m, s01s, NULL, tiop, wsp)) {
@@ -595,7 +611,8 @@ int
 main(int argc, char **argv)
 {
   int c;
-  int ptym = -1,ptys = -1;
+  int ptym_in = -1, ptys_in = -1;
+  int ptym_out = -1, ptys_out = -1;
   int child_stdin, child_stdout, child_stderr;
   int ind_stdin, ind_stdout, ind_stderr;
   char *prefix = "  ";
@@ -664,13 +681,29 @@ main(int argc, char **argv)
     int pip_stdin[2];
     int pip_stdout[2];
 
-    if (isatty(STDIN_FILENO) || isatty(STDOUT_FILENO)) {
-      setup_pty(prefix, postfix, &ptym, &ptys);
+    if (isatty(STDIN_FILENO)) {
+      setup_pty(prefix, postfix, STDIN_FILENO, &ptym_in, &ptys_in);
+    }
+    
+    /* only allocate a new pty if stdout is not the same terminal as stdin */
+    if (isatty(STDOUT_FILENO)) {
+      if (0 <= ptym_in) {
+	char *ttyin, *ttyout;
+	ttyin = strdup(ttyname(STDIN_FILENO));
+	ttyout = strdup(ttyname(STDOUT_FILENO));
+	if (!strcmp(ttyin, ttyout)) {
+	  ptym_out = ptym_in;
+	  ptys_out = ptys_in;
+	}
+      }
+      if (0 > ptym_out) {
+	setup_pty(prefix, postfix, STDOUT_FILENO, &ptym_out, &ptys_out);
+      }
     }
 
     if (isatty(STDIN_FILENO)) {
-      child_stdin = ptys;
-      ind_stdin = ptym;
+      child_stdin = ptys_in;
+      ind_stdin = ptym_in;
     } else {
       if (-1 == pipe(pip_stdin)) {
 	fprintf(stderr, "%s: pipe() failed: %s\n", argv[0], strerror(errno));
@@ -681,8 +714,8 @@ main(int argc, char **argv)
     }
 
     if (isatty(STDOUT_FILENO)) {
-      child_stdout = ptys;
-      ind_stdout = ptym;
+      child_stdout = ptys_out;
+      ind_stdout = ptym_out;
     } else {
       if (-1 == pipe(pip_stdout)) {
 	fprintf(stderr, "%s: pipe() failed: %s\n", argv[0], strerror(errno));
@@ -693,27 +726,12 @@ main(int argc, char **argv)
     }
   }
 
-  /* check tty name, if we're using ptys  */
-  if (0 <= ptym) {
-    char *tty;
-#ifdef CONSTANT_PTSMASTER
-    if (verbose) {
-      printf("%s: pty master name: %s\n", argv0, CONSTANT_PTSMASTER);
-    }
-#else
-    if (!(tty = ttyname(ptym))) {
-      fprintf(stderr, "%s: ttyname(master=%d) failed: %d %s\n",
-	      argv0, ptym, errno, strerror(errno));
-    } else if (verbose) {
-      fprintf(stderr, "%s: pty master name: %s\n", argv0, tty);
-    }
-#endif
-    if (!(tty = ttyname(ptys))) {
-      fprintf(stderr, "%s: ttyname(slave=%d) failed: %d %s\n",
-	      argv0, ptys, errno, strerror(errno));
-    } else if (verbose) {
-      fprintf(stderr, "%s: pty slave name: %s\n", argv0, tty);
-    }
+  /* print tty name, if we're using ptys  */
+  if (0 <= ptym_in) {
+    print_ttyname("stdin", ptym_in, ptys_in);
+  }
+  if (0 <= ptym_out) {
+    print_ttyname("stdout", ptym_out, ptys_out);
   }
 
   /* create stderr pipe */
