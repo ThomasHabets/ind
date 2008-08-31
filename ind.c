@@ -476,8 +476,6 @@ main(int argc, char **argv)
   int eemptyline = 1;
   int childpid;
   int stdin_fileno = STDIN_FILENO;
-  struct winsize *wsp;
-  struct termios *tiop;
 
   argv0 = argv[0];
   if (argv[argc]) {
@@ -530,48 +528,54 @@ main(int argc, char **argv)
     free(tmp);
   }
 
-  /* set up winsize */
-  wsp = alloca(sizeof(struct winsize));
-  if (0 > ioctl(STDOUT_FILENO, TIOCGWINSZ, wsp)) {
-    /* if parent terminal (if even a terminal at all) won't give up info
-     * on terminal, neither will we.
-     */
-    wsp = 0;
-  }
+  {
+    /* set up winsize */
+    struct winsize *wsp;
+    struct termios *tiop;
 
-  if (wsp) {
-    int sub = 0;
-    char *tmp;
-
-    format(prefix, &tmp, 0);
-    sub += strlen(tmp);
-    free(tmp);
-
-    format(postfix, &tmp, 0);
-    sub += strlen(tmp);
-    free(tmp);
-
-    if (sub >= wsp->ws_col) {
+    wsp = alloca(sizeof(struct winsize));
+    if (0 > ioctl(STDOUT_FILENO, TIOCGWINSZ, wsp)) {
+      /* if parent terminal (if even a terminal at all) won't give up info
+       * on terminal, neither will we.
+       */
       wsp = 0;
-    } else {
-      wsp->ws_col -= sub;
+    }
+    
+    if (wsp) {
+      int sub = 0;
+      char *tmp;
+      
+      format(prefix, &tmp, 0);
+      sub += strlen(tmp);
+      free(tmp);
+      
+      format(postfix, &tmp, 0);
+      sub += strlen(tmp);
+      free(tmp);
+      
+      if (sub >= wsp->ws_col) {
+	wsp = 0;
+      } else {
+	wsp->ws_col -= sub;
+      }
+    }
+
+    /* set up termios */
+    tiop = alloca(sizeof(struct termios));
+    if (0 > tcgetattr(STDOUT_FILENO, tiop)) {
+      /* if parent terminal (if even a terminal at all) won't give up info
+       * on terminal, neither will we.
+       */
+      tiop = 0;
+    }
+    
+    if (-1 == openpty(&s01m, &s01s, NULL, tiop, wsp)) {
+      fprintf(stderr, "%s: openpty() failed: %s\n", argv0, strerror(errno));
+      exit(1);
     }
   }
 
-  /* set up termios */
-  tiop = alloca(sizeof(struct termios));
-  if (0 > tcgetattr(STDOUT_FILENO, tiop)) {
-    /* if parent terminal (if even a terminal at all) won't give up info
-     * on terminal, neither will we.
-     */
-    tiop = 0;
-  }
-
-  if (-1 == openpty(&s01m, &s01s, NULL, tiop, wsp)) {
-    fprintf(stderr, "%s: openpty() failed: %s\n", argv0, strerror(errno));
-    exit(1);
-  }
-
+  /* check tty name */
   {
     char *tty;
 #ifdef CONSTANT_PTSMASTER
@@ -615,23 +619,25 @@ main(int argc, char **argv)
   if (tcgetattr(stdin_fileno, &orig_stdin_tio)) {
     /* if we can't get stdin attrs, don't even try to set them */
   } else {
+    struct termios tio;
+
     orig_stdin_tio_ok = 1;
 
-    if (!tcgetattr(stdin_fileno, tiop)) {
-      tiop->c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL|IXON);
-      tiop->c_oflag |= (OPOST|ONLCR);
-      tiop->c_lflag &= ~(ECHO|ECHONL|ICANON|ISIG|IEXTEN);
+    if (!tcgetattr(stdin_fileno, &tio)) {
+      tio.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL|IXON);
+      tio.c_oflag |= (OPOST|ONLCR);
+      tio.c_lflag &= ~(ECHO|ECHONL|ICANON|ISIG|IEXTEN);
 
       /* change to 8bit? */
       if (0) {
-	tiop->c_cflag &= ~(CSIZE | PARENB);
-	tiop->c_cflag |= CS8;
+	tio.c_cflag &= ~(CSIZE | PARENB);
+	tio.c_cflag |= CS8;
       }
 
-      tiop->c_cc[VMIN]  = 1;
-      tiop->c_cc[VTIME] = 0;
+      tio.c_cc[VMIN]  = 1;
+      tio.c_cc[VTIME] = 0;
       
-      if (tcsetattr(stdin_fileno, TCSADRAIN, tiop)) {
+      if (tcsetattr(stdin_fileno, TCSADRAIN, &tio)) {
 	fprintf(stderr, "%s: tcsetattr(stdin, ) failed: %s\n",
 		argv[0], strerror(errno));
 	exit(1);
