@@ -88,7 +88,7 @@ static int verbose = 0;
  *
  * @param   fd:  fd to close
  */
-static int
+int
 do_close(int fd)
 {
   int err;
