@@ -835,7 +835,13 @@ main(int argc, char **argv)
 	stdin_fileno = -1;
       } else {
 	/* FIXME: this should be nonblocking to not deadlock with child */
-	write(ind_stdin, buf, n);
+	ssize_t nw = safe_write(ind_stdin, buf, n);
+	if (nw != n) {
+	  fprintf(stderr, "%s: write(ind -> child stdin): %d %s",
+		  argv0, errno, strerror(errno));
+	  reset_stdin_terminal();
+	  exit(1);
+	}
       }
     }
   }
