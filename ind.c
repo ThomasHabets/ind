@@ -99,6 +99,31 @@ do_close(int fd)
 }
 
 /**
+ *
+ */
+static void
+terminfo(int fd)
+{
+  struct winsize w;
+  char *tty;
+  
+  printf("%s: fd: %d\n", argv0, fd);
+  if (!isatty(fd)) {
+    printf("%s: \tNot a tty!\n", argv0);
+    return;
+  }
+  if (-1 == ioctl(fd, TIOCGWINSZ, &w)) {
+    printf("%s: \tioctl(TIOCGWINSZ) fail: %s\n", argv0, strerror(errno));
+    return;
+  }
+  tty = ttyname(fd);
+  if (tty) {
+    printf("%s: \tttyname(): %s\n", argv0, tty);
+  }
+  printf("%s: \tSize: %dx%d\n", argv0, w.ws_row, w.ws_col);
+}
+
+/**
  * close three fds, and make sure not to double-close in case they are the
  * same.
  *
@@ -509,7 +534,7 @@ process(int fdin,int fdout,
     while ((q = mempbrk(p,"\r\n",n))) {
       if (*emptyline) {
 	if (0 > safe_write(fdout,pre,strlen(pre))) {
-	goto errout;
+	  goto errout;
 	}
 	*emptyline = 0;
       }
@@ -619,7 +644,6 @@ main(int argc, char **argv)
   char *eprefix = ">>";
   char *postfix = "";
   char *epostfix = "";
-  unsigned int nclosed = 0;
   int emptyline = 1;
   int eemptyline = 1;
   int childpid;
@@ -717,7 +741,7 @@ main(int argc, char **argv)
       child_stdout = ptys_out;
       ind_stdout = ptym_out;
     } else {
-      if (-1 == pipe(pip_stdout)) {
+      if (0 > pipe(pip_stdout)) {
 	fprintf(stderr, "%s: pipe() failed: %s\n", argv[0], strerror(errno));
 	exit(1);
       }
@@ -755,6 +779,11 @@ main(int argc, char **argv)
   }
   do_close3(child_stdin, child_stdout, child_stderr);
 
+  if (verbose > 1) {
+    terminfo(0);
+    terminfo(1);
+    terminfo(2);
+  }
   /* Raw stdin */
   if (tcgetattr(stdin_fileno, &orig_stdin_tio)) {
     /* if we can't get stdin attrs, don't even try to set them */
@@ -794,7 +823,9 @@ main(int argc, char **argv)
     fdmax = -1;
 
     /* done when both channels to/from child are closed */
-    if (nclosed == 2) {
+    if (ind_stdin == -1
+	&& ind_stdout == -1
+	&& ind_stderr == -1) {
       break;
     }
 
@@ -802,26 +833,45 @@ main(int argc, char **argv)
     do_fdset(&fds, ind_stdout, &fdmax);
     do_fdset(&fds, ind_stderr, &fdmax);
     do_fdset(&fds, stdin_fileno, &fdmax);
+    do_fdset(&fds, ind_stdin, &fdmax);
 
+    if (verbose > 1) {
+      fprintf(stderr, "%s: select(%d %d %d %d)\n", argv0,
+	      ind_stdin,
+	      ind_stdout,
+	      ind_stderr,
+	      stdin_fileno);
+    }
     n = select(fdmax + 1, &fds, NULL, NULL, NULL);
 
+    if (verbose > 1) {
+      fprintf(stderr, "%s: select(): %d\n", argv0, n);
+    }
     if (0 > n) {
-      fprintf(stderr, "%s: select(): %s", argv0, strerror(errno));
+      fprintf(stderr, "%s: select(): %s\n", argv0, strerror(errno));
       continue;
     }
 
+    /* if stdin != stdout then echo anything read from stdin to stdout */
+    if ((-1 < ind_stdin)
+	&& (ind_stdin != ind_stdout)
+	&& FD_ISSET(ind_stdin, &fds)) {
+      if (process(ind_stdin, STDOUT_FILENO, prefix,postfix,&emptyline)) {
+	ind_stdin = -1;
+      }
+    }
+
     if (-1 < ind_stdout && FD_ISSET(ind_stdout, &fds)) {
-      if (process(ind_stdout, STDOUT_FILENO, prefix,
-		  postfix,&emptyline)) {
-	nclosed++;
+      if (process(ind_stdout, STDOUT_FILENO, prefix, postfix,&emptyline)) {
+	if (ind_stdin == ind_stdout) {
+	  ind_stdin = -1;
+	}
 	ind_stdout = -1;
       }
     }
 
     if (-1 < ind_stderr && FD_ISSET(ind_stderr, &fds)) {
-      if (process(ind_stderr, STDERR_FILENO, eprefix,
-		  epostfix, &eemptyline)) {
-	nclosed++;
+      if (process(ind_stderr, STDERR_FILENO, eprefix, epostfix, &eemptyline)) {
 	ind_stderr = -1;
       }
     }
