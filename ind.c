@@ -92,9 +92,17 @@ static int
 do_close(int fd)
 {
   int err;
+  if (fd == -1) {
+    return 0;
+  }
   do {
     err = close(fd);
-  } while ((-1 == err) && (errno = EINTR)); 
+  } while ((-1 == err) && (errno == EINTR)); 
+  if (verbose) {
+    if (err) {
+      fprintf(stderr, "%s: close(%d): %s\n", argv0, fd, strerror(errno));
+    }
+  }
   return err;
 }
 
@@ -795,12 +803,12 @@ main(int argc, char **argv)
 
     if (!tcgetattr(stdin_fileno, &tio)) {
       tio.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|IXON);
-      tio.c_oflag |= (OPOST|ONLCR);
       if (isatty(STDOUT_FILENO)) {
 	tio.c_lflag &= ~(ECHO|ECHONL);
 	tio.c_iflag &= ~(INLCR|IGNCR|ICRNL);
+	tio.c_lflag &= ~(ICANON);
       }
-      tio.c_lflag &= ~(ICANON|ISIG|IEXTEN);
+      tio.c_lflag &= ~(ISIG|IEXTEN);
 
       /* change to 8bit? */
       if (0) {
@@ -950,17 +958,14 @@ main(int argc, char **argv)
 	exit(1);
       } else if (!n) {
 	stdin_fileno = -1;
-	if (!isatty(ind_stdin)) {
-	  do_close(ind_stdin);
-	  ind_stdin = -1;
-	} else {
-	  assert(!"read(ind_stdin) returned 0 on terminal.");
-	}
+	/* Note: is this right even for terminals */
+	do_close(ind_stdin);
+	ind_stdin = -1;
       } else {
 	/* FIXME: this should be nonblocking to not deadlock with child */
 	ssize_t nw = safe_write(ind_stdin, buf, n);
 	if (nw != n) {
-	  fprintf(stderr, "%s: write(ind -> child stdin): %d %s",
+	  fprintf(stderr, "%s: write(ind -> child stdin): %d %s\n",
 		  argv0, errno, strerror(errno));
 	  reset_stdin_terminal();
 	  exit(1);
@@ -969,14 +974,23 @@ main(int argc, char **argv)
     }
   }
 
+  if (verbose > 1) {
+    fprintf(stderr, "%s: resetting terminal\n", argv0);
+  }
   reset_stdin_terminal();
 
   {
     int status;
+    if (verbose > 1) {
+      fprintf(stderr, "%s: waitpid(%d)\n", argv0, childpid);
+    }
     if (-1 == waitpid(childpid, &status, 0)) {
       fprintf(stderr, "%s: waitpid(%d): %d %s", argv0,
 	      childpid, errno, strerror(errno));
       status = 1;
+    }
+    if (verbose > 1) {
+      fprintf(stderr, "%s: exiting\n", argv0);
     }
     return status;
   }
