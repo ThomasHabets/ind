@@ -515,7 +515,7 @@ process(int fdin,int fdout,
     case EINVAL:
     case EBADF:
     case EISDIR:
-      fprintf(stderr, "%s: Internal error: read() returned %d (%s)\n",
+      fprintf(stderr, "%s: Internal error: read() got errno %d (%s)\n",
 	      argv0, errno, strerror(errno));
       exit(1);
 
@@ -822,11 +822,22 @@ main(int argc, char **argv)
 
     fdmax = -1;
 
-    /* done when both channels to/from child are closed */
-    if (ind_stdin == -1
-	&& ind_stdout == -1
-	&& ind_stderr == -1) {
-      break;
+    /*
+     * done when both channels to/from child are closed
+     */
+    if (isatty(stdin_fileno)) {
+      if (ind_stdin == -1
+	  && ind_stdout == -1
+	  && ind_stderr == -1) {
+	break;
+      }
+    } else {
+      if (stdin_fileno == -1
+	  && ind_stdin == -1
+	  && ind_stdout == -1
+	  && ind_stderr == -1) {
+	break;
+      }
     }
 
     FD_ZERO(&fds);
@@ -854,9 +865,10 @@ main(int argc, char **argv)
 
     /* if stdin != stdout then echo anything read from stdin to stdout */
     if ((-1 < ind_stdin)
+	&& isatty(ind_stdin)
 	&& (ind_stdin != ind_stdout)
 	&& FD_ISSET(ind_stdin, &fds)) {
-      if (process(ind_stdin, STDOUT_FILENO, prefix,postfix,&emptyline)) {
+      if (process(ind_stdin, STDOUT_FILENO, prefix, postfix, &emptyline)) {
 	ind_stdin = -1;
       }
     }
@@ -881,8 +893,19 @@ main(int argc, char **argv)
       ssize_t n;
 
       n = read(stdin_fileno, buf, sizeof(buf));
-      if (!n) {
+      if (0 > n) {
+	fprintf(stderr, "%s: read(stdin_fileno): %d %s",
+		argv0, errno, strerror(errno));
+	reset_stdin_terminal();
+	exit(1);
+      } else if (!n) {
 	stdin_fileno = -1;
+	if (!isatty(ind_stdin)) {
+	  do_close(ind_stdin);
+	  ind_stdin = -1;
+	} else {
+	  assert(!"read(ind_stdin) returned 0 on terminal.");
+	}
       } else {
 	/* FIXME: this should be nonblocking to not deadlock with child */
 	ssize_t nw = safe_write(ind_stdin, buf, n);
