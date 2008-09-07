@@ -95,5 +95,21 @@ Stage 2, burning image...
     ...
 << snip >>
 
+
+Testing
+-------
+Before a release test this on FreeBSD, OpenBSD, Linux & Solaris:
+./ind ./test
+./ind ./test < t
+./ind ./test < t | cat
+./ind ./test | cat
+
+./ind cat
+./ind cat < t
+./ind cat < t > apa
+./ind cat > apa
+
+
+
 ----------------------------------------------------------------------------
 Send questions/suggestions/patches/rants/money/alphas to thomas@habets.pp.se
