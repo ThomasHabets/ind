@@ -80,7 +80,7 @@
 static const size_t max_indstr_length = 1048576;
 
 static const char *argv0;
-static const float version = 0.11f;
+static const float version = 0.12f;
 static int verbose = 0;
 
 /**
@@ -92,10 +92,44 @@ int
 do_close(int fd)
 {
   int err;
+  if (fd == -1) {
+    return 0;
+  }
   do {
     err = close(fd);
-  } while ((-1 == err) && (errno = EINTR)); 
+  } while ((-1 == err) && (errno == EINTR)); 
+  if (verbose) {
+    if (err) {
+      fprintf(stderr, "%s: close(%d): %s\n", argv0, fd, strerror(errno));
+    }
+  }
   return err;
+}
+
+/**
+ *
+ */
+static void
+terminfo(int fd)
+{
+  struct winsize w;
+  char *tty;
+  
+  fprintf(stderr, "%s: fd: %d\n", argv0, fd);
+  if (!isatty(fd)) {
+    fprintf(stderr, "%s: \tNot a tty!\n", argv0);
+    return;
+  }
+  if (-1 == ioctl(fd, TIOCGWINSZ, &w)) {
+    fprintf(stderr, "%s: \tioctl(TIOCGWINSZ) fail: %s\n",
+	    argv0, strerror(errno));
+    return;
+  }
+  tty = ttyname(fd);
+  if (tty) {
+    fprintf(stderr, "%s: \tttyname(): %s\n", argv0, tty);
+  }
+  fprintf(stderr, "%s: \tSize: %dx%d\n", argv0, w.ws_row, w.ws_col);
 }
 
 /**
@@ -490,7 +524,7 @@ process(int fdin,int fdout,
     case EINVAL:
     case EBADF:
     case EISDIR:
-      fprintf(stderr, "%s: Internal error: read() returned %d (%s)\n",
+      fprintf(stderr, "%s: Internal error: read() got errno %d (%s)\n",
 	      argv0, errno, strerror(errno));
       exit(1);
 
@@ -509,7 +543,7 @@ process(int fdin,int fdout,
     while ((q = mempbrk(p,"\r\n",n))) {
       if (*emptyline) {
 	if (0 > safe_write(fdout,pre,strlen(pre))) {
-	goto errout;
+	  goto errout;
 	}
 	*emptyline = 0;
       }
@@ -619,7 +653,6 @@ main(int argc, char **argv)
   char *eprefix = ">>";
   char *postfix = "";
   char *epostfix = "";
-  unsigned int nclosed = 0;
   int emptyline = 1;
   int eemptyline = 1;
   int childpid;
@@ -717,7 +750,7 @@ main(int argc, char **argv)
       child_stdout = ptys_out;
       ind_stdout = ptym_out;
     } else {
-      if (-1 == pipe(pip_stdout)) {
+      if (0 > pipe(pip_stdout)) {
 	fprintf(stderr, "%s: pipe() failed: %s\n", argv[0], strerror(errno));
 	exit(1);
       }
@@ -755,6 +788,11 @@ main(int argc, char **argv)
   }
   do_close3(child_stdin, child_stdout, child_stderr);
 
+  if (verbose > 1) {
+    terminfo(0);
+    terminfo(1);
+    terminfo(2);
+  }
   /* Raw stdin */
   if (tcgetattr(stdin_fileno, &orig_stdin_tio)) {
     /* if we can't get stdin attrs, don't even try to set them */
@@ -764,9 +802,13 @@ main(int argc, char **argv)
     orig_stdin_tio_ok = 1;
 
     if (!tcgetattr(stdin_fileno, &tio)) {
-      tio.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL|IXON);
-      tio.c_oflag |= (OPOST|ONLCR);
-      tio.c_lflag &= ~(ECHO|ECHONL|ICANON|ISIG|IEXTEN);
+      tio.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|IXON);
+      if (isatty(STDOUT_FILENO)) {
+	tio.c_lflag &= ~(ECHO|ECHONL);
+	tio.c_iflag &= ~(INLCR|IGNCR|ICRNL);
+	tio.c_lflag &= ~(ICANON);
+      }
+      tio.c_lflag &= ~(ISIG|IEXTEN);
 
       /* change to 8bit? */
       if (0) {
@@ -793,35 +835,111 @@ main(int argc, char **argv)
 
     fdmax = -1;
 
-    /* done when both channels to/from child are closed */
-    if (nclosed == 2) {
-      break;
+    /*
+     * done when both channels to/from child are closed
+     */
+    if (isatty(stdin_fileno)) {
+      if (ind_stdin == -1
+	  && ind_stdout == -1
+	  && ind_stderr == -1) {
+	break;
+      }
+    } else {
+      if (stdin_fileno == -1
+	  && ind_stdin == -1
+	  && ind_stdout == -1
+	  && ind_stderr == -1) {
+	break;
+      }
     }
 
     FD_ZERO(&fds);
     do_fdset(&fds, ind_stdout, &fdmax);
     do_fdset(&fds, ind_stderr, &fdmax);
     do_fdset(&fds, stdin_fileno, &fdmax);
+    do_fdset(&fds, ind_stdin, &fdmax);
 
+    if (verbose > 1) {
+      fprintf(stderr, "%s: select(%d %d %d %d)\n", argv0,
+	      ind_stdin,
+	      ind_stdout,
+	      ind_stderr,
+	      stdin_fileno);
+    }
     n = select(fdmax + 1, &fds, NULL, NULL, NULL);
-
+    
+    if (verbose > 1) {
+      fprintf(stderr, "%s: select(): %d\n", argv0, n);
+      if (ind_stdin != -1 && FD_ISSET(ind_stdin, &fds)) {
+	fprintf(stderr,"%s: \tfd: ind_stdin (%d) %d readable\n",
+		argv0,ind_stdin, isatty(ind_stdin));
+      }
+      if (ind_stdout != -1 && FD_ISSET(ind_stdout, &fds)) {
+	fprintf(stderr,"%s: \tfd: ind_stdout (%d) readable\n",
+		argv0,ind_stdout);
+      }
+      if (ind_stderr != -1 && FD_ISSET(ind_stderr, &fds)) {
+	fprintf(stderr,"%s: \tfd: ind_stderr (%d) readable\n",
+		argv0,ind_stderr);
+      }
+      if (stdin_fileno != -1 && FD_ISSET(stdin_fileno, &fds)) {
+	fprintf(stderr, "%s: \tfd: stdin_fileno (%d) readable\n",argv0,
+		stdin_fileno);
+      }
+    }
     if (0 > n) {
-      fprintf(stderr, "%s: select(): %s", argv0, strerror(errno));
+      fprintf(stderr, "%s: select(): %s\n", argv0, strerror(errno));
       continue;
     }
 
-    if (-1 < ind_stdout && FD_ISSET(ind_stdout, &fds)) {
-      if (process(ind_stdout, STDOUT_FILENO, prefix,
-		  postfix,&emptyline)) {
-	nclosed++;
-	ind_stdout = -1;
+    if (ind_stdin != ind_stdout
+	&& isatty(stdin_fileno) && !isatty(ind_stdin)) {
+      do_close(ind_stdin);
+      ind_stdin = -1;
+    }
+    
+    /* if stdin != stdout then echo anything read from stdin to stdout */
+    if ((-1 < ind_stdin)
+	&& isatty(ind_stdin)
+	&& (ind_stdin != ind_stdout)
+	&& FD_ISSET(ind_stdin, &fds)) {
+      if (verbose > 1) {
+	fprintf(stderr, "%s: read()ing ind_stdin\n", argv0);
+      }
+      if (isatty(ind_stdout)) {
+	if (process(ind_stdin, STDOUT_FILENO, prefix, postfix, &emptyline)) {
+	  ind_stdin = -1;
+	}
+      } else {
+	char buf[128];
+	/* read and discard */
+	if (0 >= read(ind_stdin, buf, sizeof(buf))) {
+	  do_close(ind_stdin);
+	  ind_stdin = -1;
+	}
       }
     }
 
+    if (-1 < ind_stdout && FD_ISSET(ind_stdout, &fds)) {
+      if (verbose > 1) {
+	fprintf(stderr, "%s: read()ing ind_stdout\n", argv0);
+      }
+      if (process(ind_stdout, STDOUT_FILENO, prefix, postfix,&emptyline)) {
+	if (ind_stdin == ind_stdout) {
+	  ind_stdin = -1;
+	}
+	ind_stdout = -1;
+      }
+    }
+    if (verbose > 1) {
+      fprintf(stderr, "%s: \tdone read()ing ind_stdout\n", argv0);
+    }
+
     if (-1 < ind_stderr && FD_ISSET(ind_stderr, &fds)) {
-      if (process(ind_stderr, STDERR_FILENO, eprefix,
-		  epostfix, &eemptyline)) {
-	nclosed++;
+      if (verbose > 1) {
+	fprintf(stderr, "%s: read()ing ind_stderr\n", argv0);
+      }
+      if (process(ind_stderr, STDERR_FILENO, eprefix, epostfix, &eemptyline)) {
 	ind_stderr = -1;
       }
     }
@@ -829,15 +947,25 @@ main(int argc, char **argv)
     if (-1 < stdin_fileno && FD_ISSET(stdin_fileno, &fds)) {
       char buf[128];
       ssize_t n;
-
+      if (verbose > 1) {
+	fprintf(stderr, "%s: read()ing stdin_fileno\n", argv0);
+      }
       n = read(stdin_fileno, buf, sizeof(buf));
-      if (!n) {
+      if (0 > n) {
+	fprintf(stderr, "%s: read(stdin_fileno): %d %s",
+		argv0, errno, strerror(errno));
+	reset_stdin_terminal();
+	exit(1);
+      } else if (!n) {
 	stdin_fileno = -1;
+	/* Note: is this right even for terminals */
+	do_close(ind_stdin);
+	ind_stdin = -1;
       } else {
 	/* FIXME: this should be nonblocking to not deadlock with child */
 	ssize_t nw = safe_write(ind_stdin, buf, n);
 	if (nw != n) {
-	  fprintf(stderr, "%s: write(ind -> child stdin): %d %s",
+	  fprintf(stderr, "%s: write(ind -> child stdin): %d %s\n",
 		  argv0, errno, strerror(errno));
 	  reset_stdin_terminal();
 	  exit(1);
@@ -846,14 +974,23 @@ main(int argc, char **argv)
     }
   }
 
+  if (verbose > 1) {
+    fprintf(stderr, "%s: resetting terminal\n", argv0);
+  }
   reset_stdin_terminal();
 
   {
     int status;
+    if (verbose > 1) {
+      fprintf(stderr, "%s: waitpid(%d)\n", argv0, childpid);
+    }
     if (-1 == waitpid(childpid, &status, 0)) {
       fprintf(stderr, "%s: waitpid(%d): %d %s", argv0,
 	      childpid, errno, strerror(errno));
       status = 1;
+    }
+    if (verbose > 1) {
+      fprintf(stderr, "%s: exiting\n", argv0);
     }
     return status;
   }

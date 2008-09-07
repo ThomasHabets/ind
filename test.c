@@ -34,9 +34,11 @@ int main()
 		setvbuf(stdout, (char *)NULL, _IOLBF, 0);
 		setvbuf(stderr, (char *)NULL, _IOLBF, 0);
 	}
-	terminfo(0);
-	terminfo(1);
-	terminfo(2);
+	if (1) {
+		terminfo(0);
+		terminfo(1);
+		terminfo(2);
+	}
 
 	if (1) {
 		fprintf(stdout, "0.1 stdout\n");
@@ -52,10 +54,10 @@ int main()
 		fprintf(stdout, "1.1 stdout\n");
 		fprintf(stderr, "1.2 stderr\n");
 		fprintf(stdout, "1.3 stdout\n");
+		sleep(1);
 	}
 
 	/* \r test */
-	sleep(1);
 	if (1) {
 		fprintf(stdout, "Progress: wait...");
 		fflush(stdout);
@@ -70,6 +72,18 @@ int main()
 		fflush(stdout);
 		scanf("%d", &nana);
 		printf("Value: %d\n", nana);
+	}
+	if (0) {
+		char buf[1024];
+		int n;
+		printf("reading from stdin...\n"); fflush(stdout);
+		n = read(0, buf, sizeof(buf));
+		printf("done (%d)...\n", n); fflush(stdout);
+	}
+	if (0) {
+		printf("Closing stdin...\n"); fflush(stdout);
+		close(0);
+		printf("done...\n"); fflush(stdout);
 	}
 	return 0;
 }
