@@ -107,20 +107,21 @@ terminfo(int fd)
   struct winsize w;
   char *tty;
   
-  printf("%s: fd: %d\n", argv0, fd);
+  fprintf(stderr, "%s: fd: %d\n", argv0, fd);
   if (!isatty(fd)) {
-    printf("%s: \tNot a tty!\n", argv0);
+    fprintf(stderr, "%s: \tNot a tty!\n", argv0);
     return;
   }
   if (-1 == ioctl(fd, TIOCGWINSZ, &w)) {
-    printf("%s: \tioctl(TIOCGWINSZ) fail: %s\n", argv0, strerror(errno));
+    fprintf(stderr, "%s: \tioctl(TIOCGWINSZ) fail: %s\n",
+	    argv0, strerror(errno));
     return;
   }
   tty = ttyname(fd);
   if (tty) {
-    printf("%s: \tttyname(): %s\n", argv0, tty);
+    fprintf(stderr, "%s: \tttyname(): %s\n", argv0, tty);
   }
-  printf("%s: \tSize: %dx%d\n", argv0, w.ws_row, w.ws_col);
+  fprintf(stderr, "%s: \tSize: %dx%d\n", argv0, w.ws_row, w.ws_col);
 }
 
 /**
@@ -793,9 +794,13 @@ main(int argc, char **argv)
     orig_stdin_tio_ok = 1;
 
     if (!tcgetattr(stdin_fileno, &tio)) {
-      tio.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL|IXON);
+      tio.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|IXON);
       tio.c_oflag |= (OPOST|ONLCR);
-      tio.c_lflag &= ~(ECHO|ECHONL|ICANON|ISIG|IEXTEN);
+      if (isatty(STDOUT_FILENO)) {
+	tio.c_lflag &= ~(ECHO|ECHONL);
+	tio.c_iflag &= ~(INLCR|IGNCR|ICRNL);
+      }
+      tio.c_lflag &= ~(ICANON|ISIG|IEXTEN);
 
       /* change to 8bit? */
       if (0) {
@@ -854,26 +859,63 @@ main(int argc, char **argv)
 	      stdin_fileno);
     }
     n = select(fdmax + 1, &fds, NULL, NULL, NULL);
-
+    
     if (verbose > 1) {
       fprintf(stderr, "%s: select(): %d\n", argv0, n);
+      if (ind_stdin != -1 && FD_ISSET(ind_stdin, &fds)) {
+	fprintf(stderr,"%s: \tfd: ind_stdin (%d) %d readable\n",
+		argv0,ind_stdin, isatty(ind_stdin));
+      }
+      if (ind_stdout != -1 && FD_ISSET(ind_stdout, &fds)) {
+	fprintf(stderr,"%s: \tfd: ind_stdout (%d) readable\n",
+		argv0,ind_stdout);
+      }
+      if (ind_stderr != -1 && FD_ISSET(ind_stderr, &fds)) {
+	fprintf(stderr,"%s: \tfd: ind_stderr (%d) readable\n",
+		argv0,ind_stderr);
+      }
+      if (stdin_fileno != -1 && FD_ISSET(stdin_fileno, &fds)) {
+	fprintf(stderr, "%s: \tfd: stdin_fileno (%d) readable\n",argv0,
+		stdin_fileno);
+      }
     }
     if (0 > n) {
       fprintf(stderr, "%s: select(): %s\n", argv0, strerror(errno));
       continue;
     }
 
+    if (ind_stdin != ind_stdout
+	&& isatty(stdin_fileno) && !isatty(ind_stdin)) {
+      do_close(ind_stdin);
+      ind_stdin = -1;
+    }
+    
     /* if stdin != stdout then echo anything read from stdin to stdout */
     if ((-1 < ind_stdin)
 	&& isatty(ind_stdin)
 	&& (ind_stdin != ind_stdout)
 	&& FD_ISSET(ind_stdin, &fds)) {
-      if (process(ind_stdin, STDOUT_FILENO, prefix, postfix, &emptyline)) {
-	ind_stdin = -1;
+      if (verbose > 1) {
+	fprintf(stderr, "%s: read()ing ind_stdin\n", argv0);
+      }
+      if (isatty(ind_stdout)) {
+	if (process(ind_stdin, STDOUT_FILENO, prefix, postfix, &emptyline)) {
+	  ind_stdin = -1;
+	}
+      } else {
+	char buf[128];
+	/* read and discard */
+	if (0 >= read(ind_stdin, buf, sizeof(buf))) {
+	  do_close(ind_stdin);
+	  ind_stdin = -1;
+	}
       }
     }
 
     if (-1 < ind_stdout && FD_ISSET(ind_stdout, &fds)) {
+      if (verbose > 1) {
+	fprintf(stderr, "%s: read()ing ind_stdout\n", argv0);
+      }
       if (process(ind_stdout, STDOUT_FILENO, prefix, postfix,&emptyline)) {
 	if (ind_stdin == ind_stdout) {
 	  ind_stdin = -1;
@@ -881,8 +923,14 @@ main(int argc, char **argv)
 	ind_stdout = -1;
       }
     }
+    if (verbose > 1) {
+      fprintf(stderr, "%s: \tdone read()ing ind_stdout\n", argv0);
+    }
 
     if (-1 < ind_stderr && FD_ISSET(ind_stderr, &fds)) {
+      if (verbose > 1) {
+	fprintf(stderr, "%s: read()ing ind_stderr\n", argv0);
+      }
       if (process(ind_stderr, STDERR_FILENO, eprefix, epostfix, &eemptyline)) {
 	ind_stderr = -1;
       }
@@ -891,7 +939,9 @@ main(int argc, char **argv)
     if (-1 < stdin_fileno && FD_ISSET(stdin_fileno, &fds)) {
       char buf[128];
       ssize_t n;
-
+      if (verbose > 1) {
+	fprintf(stderr, "%s: read()ing stdin_fileno\n", argv0);
+      }
       n = read(stdin_fileno, buf, sizeof(buf));
       if (0 > n) {
 	fprintf(stderr, "%s: read(stdin_fileno): %d %s",
