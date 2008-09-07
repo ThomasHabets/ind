@@ -508,7 +508,12 @@ process(int fdin,int fdout,
   char *pre = 0;
   char *post = 0;
 
-  if (!(n = read(fdin, buf, sizeof(buf)-1))) {
+  n = read(fdin, buf, sizeof(buf)-1);
+  if (verbose > 1) {
+    fprintf(stderr, "%s: read(%d): %d (errno=%s)\n", argv0, fdin, n,
+	    strerror(errno));
+  }
+  if (!n) {
     goto errout;
   }
 
@@ -789,6 +794,7 @@ main(int argc, char **argv)
   do_close3(child_stdin, child_stdout, child_stderr);
 
   if (verbose > 1) {
+    fprintf(stderr, "%s: childpid: %d\n", argv[0], childpid);
     terminfo(0);
     terminfo(1);
     terminfo(2);
