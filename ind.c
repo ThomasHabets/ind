@@ -212,7 +212,8 @@ print_ttyname(const char *fdname, int fdm, int fds)
   char *tty;
 #ifdef CONSTANT_PTSMASTER
   if (verbose) {
-    printf("%s: %s pty master name: %s\n", argv0, fdname, CONSTANT_PTSMASTER);
+    fprintf(stderr, "%s: %s pty master name: %s\n",
+            argv0, fdname, CONSTANT_PTSMASTER);
   }
 #else
   if (!(tty = ttyname(fdm))) {
@@ -930,9 +931,9 @@ main(int argc, char **argv)
 	}
 	ind_stdout = -1;
       }
-    }
-    if (verbose > 1) {
-      fprintf(stderr, "%s: \tdone read()ing ind_stdout\n", argv0);
+      if (verbose > 1) {
+        fprintf(stderr, "%s: \tdone read()ing ind_stdout\n", argv0);
+      }
     }
 
     if (-1 < ind_stderr && FD_ISSET(ind_stderr, &fds)) {
@@ -941,6 +942,9 @@ main(int argc, char **argv)
       }
       if (process(ind_stderr, STDERR_FILENO, eprefix, epostfix, &eemptyline)) {
 	ind_stderr = -1;
+      }
+      if (verbose > 1) {
+        fprintf(stderr, "%s: \tdone read()ing ind_stderr\n", argv0);
       }
     }
 
@@ -961,12 +965,12 @@ main(int argc, char **argv)
 	/* Note: is this right even for terminals */
 	do_close(ind_stdin);
 	ind_stdin = -1;
-      } else {
+      } else if (-1 < ind_stdin) {
 	/* FIXME: this should be nonblocking to not deadlock with child */
 	ssize_t nw = safe_write(ind_stdin, buf, n);
 	if (nw != n) {
-	  fprintf(stderr, "%s: write(ind -> child stdin): %d %s\n",
-		  argv0, errno, strerror(errno));
+	  fprintf(stderr, "%s: write(ind -> child stdin, %d)=>%d err=%d %s\n",
+		  argv0, n, nw, errno, strerror(errno));
 	  reset_stdin_terminal();
 	  exit(1);
 	}
