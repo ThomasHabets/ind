@@ -82,6 +82,7 @@ static const size_t max_indstr_length = 1048576;
 static const char *argv0;
 static const float version = 0.12f;
 static int verbose = 0;
+static int sig_winch_counter = 0;
 
 /**
  * EINTR-safe close()
@@ -586,6 +587,30 @@ process(int fdin,int fdout,
 }
 
 /**
+ * adjust width according to length of prefix
+ */
+static void
+fixup_wsp(struct winsize *wsp, const char *prefix, const char *postfix)
+{
+  int sub = 0;
+  char *tmp;
+  
+  format(prefix, &tmp, 0);
+  sub += strlen(tmp);
+  free(tmp);
+  
+  format(postfix, &tmp, 0);
+  sub += strlen(tmp);
+  free(tmp);
+  
+  if (sub >= wsp->ws_col) {
+    wsp = 0;
+  } else {
+    wsp->ws_col -= sub;
+  }
+}
+
+/**
  *
  */
 static void
@@ -606,22 +631,7 @@ setup_pty(const char *prefix, const char *postfix,
   }
     
   if (wsp) {
-    int sub = 0;
-    char *tmp;
-      
-    format(prefix, &tmp, 0);
-    sub += strlen(tmp);
-    free(tmp);
-      
-    format(postfix, &tmp, 0);
-    sub += strlen(tmp);
-    free(tmp);
-      
-    if (sub >= wsp->ws_col) {
-      wsp = 0;
-    } else {
-      wsp->ws_col -= sub;
-    }
+    fixup_wsp(wsp, prefix, postfix);
   }
 
   /* set up termios */
@@ -636,6 +646,35 @@ setup_pty(const char *prefix, const char *postfix,
   if (-1 == openpty(s01m, s01s, NULL, tiop, wsp)) {
     fprintf(stderr, "%s: openpty() failed: %s\n", argv0, strerror(errno));
     exit(1);
+  }
+}
+
+/**
+ *
+ */
+static void
+sig_window_resize(int unused)
+{
+  sig_winch_counter += (unused == unused); /* hide warning */
+}
+
+/**
+ *
+ */
+static void
+update_window_size(int dst, int src, const char *prefix, const char *postfix)
+{
+  struct winsize *wsp;
+  wsp = alloca(sizeof(struct winsize));
+  if (0 > ioctl(src, TIOCGWINSZ, wsp)) {
+    /* maybe it's not a terminal. Either way, don't go there */
+    return;
+  }
+  fixup_wsp(wsp, prefix, postfix);
+  if (0 > ioctl(dst, TIOCSWINSZ, wsp)) {
+    fprintf(stderr, "%s: ioctl(%d (copy from %d)): %s\n", argv0, dst, src,
+            strerror(errno));
+    return;
   }
 }
 
@@ -828,6 +867,9 @@ main(int argc, char **argv)
     }
   }
 
+  signal(SIGWINCH, sig_window_resize);
+  signal(SIGCONT, sig_window_resize);
+
   /* main loop */
   for(;;) {
     fd_set fds;
@@ -867,8 +909,35 @@ main(int argc, char **argv)
 	      ind_stderr,
 	      stdin_fileno);
     }
-    n = select(fdmax + 1, &fds, NULL, NULL, NULL);
+
+    /* resize window, if needed */
+    {
+      static int last_sigwinchcount = 0;
+      int sigwinchcount = sig_winch_counter;
+
+      /* NOTE: if a signal occurs between now and the childs ioctl() we will
+       *       catch it until the next iteration.
+       */
+      if (sigwinchcount != last_sigwinchcount) {
+        update_window_size(ind_stdin, STDIN_FILENO, prefix, postfix);
+        update_window_size(ind_stdout, STDOUT_FILENO, prefix, postfix);
+        last_sigwinchcount = sigwinchcount;
+      }
+    }
     
+    n = select(fdmax + 1, &fds, NULL, NULL, NULL);
+
+    if (0 > n) {
+      switch (errno) {
+      case EINTR:
+        /* no worries mate, probably just a SIGWINCH */
+        break;
+      default:
+        fprintf(stderr, "%s: select(): %s\n", argv0, strerror(errno));
+      }
+      continue;
+    }
+
     if (verbose > 1) {
       fprintf(stderr, "%s: select(): %d\n", argv0, n);
       if (ind_stdin != -1 && FD_ISSET(ind_stdin, &fds)) {
@@ -887,10 +956,6 @@ main(int argc, char **argv)
 	fprintf(stderr, "%s: \tfd: stdin_fileno (%d) readable\n",argv0,
 		stdin_fileno);
       }
-    }
-    if (0 > n) {
-      fprintf(stderr, "%s: select(): %s\n", argv0, strerror(errno));
-      continue;
     }
 
     if (ind_stdin != ind_stdout
