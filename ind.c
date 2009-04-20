@@ -80,7 +80,7 @@
 static const size_t max_indstr_length = 1048576;
 
 static const char *argv0;
-static const float version = 0.13f;
+static const float version = 0.12f;
 static int verbose = 0;
 static int sig_winch_counter = 0;
 
