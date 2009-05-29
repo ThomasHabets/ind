@@ -32,8 +32,11 @@
 
 static const int ISO_C_forbids_an_empty_source_file = 1;
 
-#include <sys/ioctl.h>
 #include <unistd.h>
+#include <stropts.h>
+#include <termios.h>
+
+#include <sys/ioctl.h>
 
 int do_close(int fd);
 
