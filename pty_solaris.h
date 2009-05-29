@@ -26,15 +26,15 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#if defined (__SVR4) && defined (__sun)
 
 #include <unistd.h>
+
+#ifdef HAVE_OPENPTY
+/* Local system has openpty() */
+
+#elif defined (__SVR4) && defined (__sun)
 int
 openpty(int  *amaster,  int  *aslave,  char  *name, struct termios
 	*termp, struct winsize * winp);
-int
-login_tty(int fd);
-
 #define CONSTANT_PTSMASTER "/dev/ptmx"
-
 #endif
