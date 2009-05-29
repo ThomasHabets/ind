@@ -8,7 +8,7 @@
 /*
  * (BSD license without advertising clause below)
  *
- * Copyright (c) 2005-2008 Thomas Habets. All rights reserved.
+ * Copyright (c) 2005-2009 Thomas Habets. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -332,18 +332,86 @@ usage(int err)
 	 "usage: %s [ -h ] [ -p <fmt> ] [ -a <fmt> ] [ -P <fmt> ] "
 	 "[ -A <fmt> ]  \n"
 	 "          <command> <args> ...\n"
-	 "\t-a        Postfix stdout (default: \"\")\n"
-	 "\t-A        Postfix stderr (default: \"\")\n"
-	 "\t-h        Show this help text\n"
-	 "\t-p        Prefix stdout (default: \"  \")\n"
-	 "\t-P        Prefix stderr (default: \">>\") \n"
-	 "\t-v        Verbose (repeat -v to increase verbosity)\n"
+	 "\t-a          Postfix stdout (default: \"\")\n"
+	 "\t-A          Postfix stderr (default: \"\")\n"
+	 "\t--copying   Show 3-clause BSD license\n"
+	 "\t-h, --help  Show this help text\n"
+	 "\t-p          Prefix stdout (default: \"  \")\n"
+	 "\t-P          Prefix stderr (default: \">>\") \n"
+	 "\t-v          Verbose (repeat -v to increase verbosity)\n"
+	 "\t--version   Show version\n"
 	 "Format:\n"
 	 " Normal text, except:\n"
-	 "\t%%%%        Insert %%%%\n"
-	 "\t%%c        Insert output from ctime(3) function\n"
+	 "\t%%%%          Insert %%%%\n"
+	 "\t%%c          Insert output from ctime(3) function\n"
 	 , version, argv0);
   exit(err);
+}
+
+/**
+ *
+ */
+static void
+printVersion()
+{
+  printf("ind %s\n", version);
+  printf("Copyright (C) 2005-2009 Thomas Habets\n"
+         "License 3-clause BSD. Run with --copying to see the whole license.\n"
+         "This is free software: you are free to change and "
+         "redistribute it.\n"
+         "There is NO WARRANTY, to the extent permitted by law.\n");
+  exit(0);
+}
+
+/**
+ *
+ */
+static void
+printLicense()
+{
+  printf("ind %s\n", version);
+  printf("(BSD license without advertising clause below)\n"
+         "\n"
+         " Copyright (c) 2005-2009 Thomas Habets. All rights reserved.\n"
+         "\n"
+         " Redistribution and use in source and binary forms, with or "
+         "without\n"
+         " modification, are permitted provided that the following "
+         "conditions\n"
+         " are met:\n"
+         " 1. Redistributions of source code must retain the above copyright\n"
+         "    notice, this list of conditions and the following disclaimer.\n"
+         " 2. Redistributions in binary form must reproduce the above "
+         "copyright\n"
+         "    notice, this list of conditions and the following disclaimer in"
+         " the\n"
+         "    documentation and/or other materials provided with the "
+         "distribution.\n"
+         " 3. The name of the author may not be used to endorse or promote"
+         " products\n"
+         "    derived from this software without specific prior written "
+         "permission.\n"
+         "\n"
+         " THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS "
+         "OR\n"
+         " IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED "
+         "WARRANTIES\n"
+         " OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE "
+         "DISCLAIMED.\n"
+         " IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,\n"
+         " INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES "
+         "(INCLUDING, BUT\n"
+         " NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS"
+         " OF USE,\n"
+         " DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND "
+         "ON ANY\n"
+         " THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR "
+         "TORT\n"
+         " (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE "
+         "USE OF\n"
+         " THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH "
+         "DAMAGE.\n");
+  exit(0);
 }
 
 /**
@@ -713,6 +781,22 @@ main(int argc, char **argv)
     return 1;
   }
 
+  { /* handle GNU options */
+    int c;
+    for (c = 1; c < argc; c++) {
+      
+      if (!strcmp(argv[c], "--")) {
+        break;
+      } else if (!strcmp(argv[c], "--help")) {
+        usage(0);
+      } else if (!strcmp(argv[c], "--version")) {
+        printVersion();
+      } else if (!strcmp(argv[c], "--copying")) {
+        printLicense();
+      }
+    }
+  }
+  
   while (-1 != (c = getopt(argc, argv, "+hp:a:P:A:v"))) {
     switch(c) {
     case 'h':
