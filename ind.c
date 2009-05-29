@@ -50,6 +50,7 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <signal.h>
 
 #ifdef HAVE_UTIL_H
 #include <util.h>
