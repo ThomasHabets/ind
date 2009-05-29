@@ -115,9 +115,10 @@ Log of tested systems and versions
 0.13pre-release:
    Debian GNU/kFreeBSD (squeeze) amd64
    Debian GNU/Linux (lenny) amd64
+   OpenBSD 4.4 amd64
 0.12:
    FreeBSD 6.1 x86
-   OpenBSD
+   OpenBSD 4.4 amd64
    Debian GNU/Linux (lenny) amd64
    Solaris 10 sparc
    
