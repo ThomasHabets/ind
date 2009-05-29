@@ -8,7 +8,7 @@
 /*
  * (BSD license without advertising clause below)
  *
- * Copyright (c) 2005-2008 Thomas Habets. All rights reserved.
+ * Copyright (c) 2005-2009 Thomas Habets. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +32,10 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -46,20 +50,21 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <signal.h>
 
-#ifdef __OpenBSD__
+#ifdef HAVE_UTIL_H
 #include <util.h>
 #endif
 
-#ifdef __FreeBSD__
+#ifdef HAVE_LIBUTIL_H
 #include <libutil.h>
 #endif
 
-#ifdef __linux__
+#ifdef HAVE_PTY_H
 #include <pty.h>
 #endif
 
-#if defined (__SVR4) && defined (__sun)
+#if HAVE_ALLOCA_H
 #include <alloca.h>
 #endif
 
@@ -80,8 +85,9 @@
 static const size_t max_indstr_length = 1048576;
 
 static const char *argv0;
-static const float version = 0.12f;
+static const char *version = PACKAGE_VERSION;
 static int verbose = 0;
+static int sig_winch_counter = 0;
 
 /**
  * EINTR-safe close()
@@ -212,7 +218,8 @@ print_ttyname(const char *fdname, int fdm, int fds)
   char *tty;
 #ifdef CONSTANT_PTSMASTER
   if (verbose) {
-    printf("%s: %s pty master name: %s\n", argv0, fdname, CONSTANT_PTSMASTER);
+    fprintf(stderr, "%s: %s pty master name: %s\n",
+            argv0, fdname, CONSTANT_PTSMASTER);
   }
 #else
   if (!(tty = ttyname(fdm))) {
@@ -322,22 +329,90 @@ static void
 usage(int err)
 {
   
-  printf("ind %.2f, by Thomas Habets <thomas@habets.pp.se>\n"
+  printf("ind %s, by Thomas Habets <thomas@habets.pp.se>\n"
 	 "usage: %s [ -h ] [ -p <fmt> ] [ -a <fmt> ] [ -P <fmt> ] "
 	 "[ -A <fmt> ]  \n"
 	 "          <command> <args> ...\n"
-	 "\t-a        Postfix stdout (default: \"\")\n"
-	 "\t-A        Postfix stderr (default: \"\")\n"
-	 "\t-h        Show this help text\n"
-	 "\t-p        Prefix stdout (default: \"  \")\n"
-	 "\t-P        Prefix stderr (default: \">>\") \n"
-	 "\t-v        Verbose (repeat -v to increase verbosity)\n"
+	 "\t-a          Postfix stdout (default: \"\")\n"
+	 "\t-A          Postfix stderr (default: \"\")\n"
+	 "\t--copying   Show 3-clause BSD license\n"
+	 "\t-h, --help  Show this help text\n"
+	 "\t-p          Prefix stdout (default: \"  \")\n"
+	 "\t-P          Prefix stderr (default: \">>\") \n"
+	 "\t-v          Verbose (repeat -v to increase verbosity)\n"
+	 "\t--version   Show version\n"
 	 "Format:\n"
 	 " Normal text, except:\n"
-	 "\t%%%%        Insert %%%%\n"
-	 "\t%%c        Insert output from ctime(3) function\n"
+	 "\t%%%%          Insert %%%%\n"
+	 "\t%%c          Insert output from ctime(3) function\n"
 	 , version, argv0);
   exit(err);
+}
+
+/**
+ *
+ */
+static void
+printVersion()
+{
+  printf("ind %s\n", version);
+  printf("Copyright (C) 2005-2009 Thomas Habets\n"
+         "License 3-clause BSD. Run with --copying to see the whole license.\n"
+         "This is free software: you are free to change and "
+         "redistribute it.\n"
+         "There is NO WARRANTY, to the extent permitted by law.\n");
+  exit(0);
+}
+
+/**
+ *
+ */
+static void
+printLicense()
+{
+  printf("ind %s\n", version);
+  printf("(BSD license without advertising clause below)\n"
+         "\n"
+         " Copyright (c) 2005-2009 Thomas Habets. All rights reserved.\n"
+         "\n"
+         " Redistribution and use in source and binary forms, with or "
+         "without\n"
+         " modification, are permitted provided that the following "
+         "conditions\n"
+         " are met:\n"
+         " 1. Redistributions of source code must retain the above copyright\n"
+         "    notice, this list of conditions and the following disclaimer.\n"
+         " 2. Redistributions in binary form must reproduce the above "
+         "copyright\n"
+         "    notice, this list of conditions and the following disclaimer in"
+         " the\n"
+         "    documentation and/or other materials provided with the "
+         "distribution.\n"
+         " 3. The name of the author may not be used to endorse or promote"
+         " products\n"
+         "    derived from this software without specific prior written "
+         "permission.\n"
+         "\n"
+         " THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS "
+         "OR\n"
+         " IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED "
+         "WARRANTIES\n"
+         " OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE "
+         "DISCLAIMED.\n"
+         " IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,\n"
+         " INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES "
+         "(INCLUDING, BUT\n"
+         " NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS"
+         " OF USE,\n"
+         " DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND "
+         "ON ANY\n"
+         " THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR "
+         "TORT\n"
+         " (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE "
+         "USE OF\n"
+         " THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH "
+         "DAMAGE.\n");
+  exit(0);
 }
 
 /**
@@ -590,6 +665,30 @@ process(int fdin,int fdout,
 }
 
 /**
+ * adjust width according to length of prefix
+ */
+static void
+fixup_wsp(struct winsize *wsp, const char *prefix, const char *postfix)
+{
+  int sub = 0;
+  char *tmp;
+  
+  format(prefix, &tmp, 0);
+  sub += strlen(tmp);
+  free(tmp);
+  
+  format(postfix, &tmp, 0);
+  sub += strlen(tmp);
+  free(tmp);
+  
+  if (sub >= wsp->ws_col) {
+    wsp = 0;
+  } else {
+    wsp->ws_col -= sub;
+  }
+}
+
+/**
  *
  */
 static void
@@ -610,22 +709,7 @@ setup_pty(const char *prefix, const char *postfix,
   }
     
   if (wsp) {
-    int sub = 0;
-    char *tmp;
-      
-    format(prefix, &tmp, 0);
-    sub += strlen(tmp);
-    free(tmp);
-      
-    format(postfix, &tmp, 0);
-    sub += strlen(tmp);
-    free(tmp);
-      
-    if (sub >= wsp->ws_col) {
-      wsp = 0;
-    } else {
-      wsp->ws_col -= sub;
-    }
+    fixup_wsp(wsp, prefix, postfix);
   }
 
   /* set up termios */
@@ -640,6 +724,35 @@ setup_pty(const char *prefix, const char *postfix,
   if (-1 == openpty(s01m, s01s, NULL, tiop, wsp)) {
     fprintf(stderr, "%s: openpty() failed: %s\n", argv0, strerror(errno));
     exit(1);
+  }
+}
+
+/**
+ *
+ */
+static void
+sig_window_resize(int unused)
+{
+  sig_winch_counter += (unused == unused); /* hide warning */
+}
+
+/**
+ *
+ */
+static void
+update_window_size(int dst, int src, const char *prefix, const char *postfix)
+{
+  struct winsize *wsp;
+  wsp = alloca(sizeof(struct winsize));
+  if (0 > ioctl(src, TIOCGWINSZ, wsp)) {
+    /* maybe it's not a terminal. Either way, don't go there */
+    return;
+  }
+  fixup_wsp(wsp, prefix, postfix);
+  if (0 > ioctl(dst, TIOCSWINSZ, wsp)) {
+    fprintf(stderr, "%s: ioctl(%d (copy from %d)): %s\n", argv0, dst, src,
+            strerror(errno));
+    return;
   }
 }
 
@@ -674,6 +787,22 @@ main(int argc, char **argv)
     return 1;
   }
 
+  { /* handle GNU options */
+    int c;
+    for (c = 1; c < argc; c++) {
+      
+      if (!strcmp(argv[c], "--")) {
+        break;
+      } else if (!strcmp(argv[c], "--help")) {
+        usage(0);
+      } else if (!strcmp(argv[c], "--version")) {
+        printVersion();
+      } else if (!strcmp(argv[c], "--copying")) {
+        printLicense();
+      }
+    }
+  }
+  
   while (-1 != (c = getopt(argc, argv, "+hp:a:P:A:v"))) {
     switch(c) {
     case 'h':
@@ -833,6 +962,9 @@ main(int argc, char **argv)
     }
   }
 
+  signal(SIGWINCH, sig_window_resize);
+  signal(SIGCONT, sig_window_resize);
+
   /* main loop */
   for(;;) {
     fd_set fds;
@@ -872,8 +1004,35 @@ main(int argc, char **argv)
 	      ind_stderr,
 	      stdin_fileno);
     }
-    n = select(fdmax + 1, &fds, NULL, NULL, NULL);
+
+    /* resize window, if needed */
+    {
+      static int last_sigwinchcount = 0;
+      int sigwinchcount = sig_winch_counter;
+
+      /* NOTE: if a signal occurs between now and the childs ioctl() we will
+       *       catch it until the next iteration.
+       */
+      if (sigwinchcount != last_sigwinchcount) {
+        update_window_size(ind_stdin, STDIN_FILENO, prefix, postfix);
+        update_window_size(ind_stdout, STDOUT_FILENO, prefix, postfix);
+        last_sigwinchcount = sigwinchcount;
+      }
+    }
     
+    n = select(fdmax + 1, &fds, NULL, NULL, NULL);
+
+    if (0 > n) {
+      switch (errno) {
+      case EINTR:
+        /* no worries mate, probably just a SIGWINCH */
+        break;
+      default:
+        fprintf(stderr, "%s: select(): %s\n", argv0, strerror(errno));
+      }
+      continue;
+    }
+
     if (verbose > 1) {
       fprintf(stderr, "%s: select(): %d\n", argv0, n);
       if (ind_stdin != -1 && FD_ISSET(ind_stdin, &fds)) {
@@ -892,10 +1051,6 @@ main(int argc, char **argv)
 	fprintf(stderr, "%s: \tfd: stdin_fileno (%d) readable\n",argv0,
 		stdin_fileno);
       }
-    }
-    if (0 > n) {
-      fprintf(stderr, "%s: select(): %s\n", argv0, strerror(errno));
-      continue;
     }
 
     if (ind_stdin != ind_stdout
@@ -936,9 +1091,9 @@ main(int argc, char **argv)
 	}
 	ind_stdout = -1;
       }
-    }
-    if (verbose > 1) {
-      fprintf(stderr, "%s: \tdone read()ing ind_stdout\n", argv0);
+      if (verbose > 1) {
+        fprintf(stderr, "%s: \tdone read()ing ind_stdout\n", argv0);
+      }
     }
 
     if (-1 < ind_stderr && FD_ISSET(ind_stderr, &fds)) {
@@ -947,6 +1102,9 @@ main(int argc, char **argv)
       }
       if (process(ind_stderr, STDERR_FILENO, eprefix, epostfix, &eemptyline)) {
 	ind_stderr = -1;
+      }
+      if (verbose > 1) {
+        fprintf(stderr, "%s: \tdone read()ing ind_stderr\n", argv0);
       }
     }
 
@@ -967,12 +1125,12 @@ main(int argc, char **argv)
 	/* Note: is this right even for terminals */
 	do_close(ind_stdin);
 	ind_stdin = -1;
-      } else {
+      } else if (-1 < ind_stdin) {
 	/* FIXME: this should be nonblocking to not deadlock with child */
 	ssize_t nw = safe_write(ind_stdin, buf, n);
 	if (nw != n) {
-	  fprintf(stderr, "%s: write(ind -> child stdin): %d %s\n",
-		  argv0, errno, strerror(errno));
+	  fprintf(stderr, "%s: write(ind -> child stdin, %d)=>%d err=%d %s\n",
+		  argv0, n, nw, errno, strerror(errno));
 	  reset_stdin_terminal();
 	  exit(1);
 	}

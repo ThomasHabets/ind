@@ -110,6 +110,17 @@ Before a release test this on FreeBSD, OpenBSD, Linux & Solaris:
 ./ind cat > apa
 
 
+Log of tested systems and versions
+----------------------------------
+0.13pre-release:
+   Debian GNU/kFreeBSD (squeeze) amd64
+   Debian GNU/Linux (lenny) amd64
+0.12:
+   FreeBSD 6.1 x86
+   OpenBSD
+   Debian GNU/Linux (lenny) amd64
+   Solaris 10 sparc
+   
 
 ----------------------------------------------------------------------------
 Send questions/suggestions/patches/rants/money/alphas to thomas@habets.pp.se

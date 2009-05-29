@@ -1,4 +1,4 @@
-/* ind/pty_solaris.c
+/* ind/portable.c - portability functions
  *
  * (BSD license without advertising clause below)
  *
@@ -32,96 +32,34 @@
 
 static const int ISO_C_forbids_an_empty_source_file = 1;
 
-#ifdef HAVE_OPENPTY
-/* What? A Solaris system that has openpty()?  Okay, we'll use that */
-
-#elif defined (__SVR4) && defined (__sun)
-#include <utmp.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <strings.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <stropts.h>
-#include <errno.h>
-#include <stropts.h>
-#include <termios.h>
-
-struct winsize;
-struct termios;
 
 int do_close(int fd);
 
+#ifndef HAVE_LOGIN_TTY
 /**
- * taken from pts(7D), and added error handling
+ *
  */
 int
-openpty(int  *amaster, int *aslave, char *name,
-	struct termios *termp, struct winsize *winp)
+login_tty(int fd)
 {
-  int fds = -1, fdm = -1;
-  int saved_errno = 0;
-	
-  if (0 > (fdm = open("/dev/ptmx", O_RDWR))) {
-    goto errout;
+  if (0 > setsid()) {
+    return -1;
   }
-  if (grantpt(fdm)) {
-    goto errout;
+  if (ioctl(fd, TIOCSCTTY, 1) < 0) {
+    return -1;
   }
-  if (unlockpt(fdm)) {
-    goto errout;
+  if (0 > dup2(fd, 0)) {
+    return -1;
   }
-  if (name) {
-    strcpy(name, ptsname(fdm));
+  if (0 > dup2(fd, 1)) {
+    return -1;
   }
-  if (0 > (fds = open(ptsname(fdm), O_RDWR))) {
-    goto errout;
+  if (0 > dup2(fd, 2)) {
+    return -1;
   }
-  if (0 > (ioctl(fds, I_PUSH, "ptem"))) {
-    goto errout;
-  }
-  if (0 > (ioctl(fds, I_PUSH, "ldterm"))) {
-    goto errout;
-  }
-  *amaster = fdm;
-  *aslave = fds;
-  if (termp) {
-    if (0 > tcsetattr(fds, TCSADRAIN, termp)) {
-      goto errout;
-    }
-  }
-  if (winp) {
-    if (0 > ioctl(fds, TIOCSWINSZ, winp)) {
-      goto errout;
-    }
-  }
+  do_close(fd);
   return 0;
-
- errout:
-  saved_errno = errno;
-  if (0 < fds) {
-    do_close(fds);
-  }
-  if (0 < fdm) {
-    do_close(fdm);
-  }
-  if (name) {
-    *name = 0;
-  }
-  errno = saved_errno;
-  return -1;
 }
-
-/**
- * Local Variables:
- * mode: c
- * c-basic-offset: 2
- * fill-column: 79
- * End:
- */
 #endif
