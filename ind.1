@@ -1,40 +1,48 @@
-.TH "ind" "1" "19th April, 2005" "ind" "" 
+.TH "ind" "1" "19th April, 2005" "ind" ""
+
 .PP 
-.SH "NAME" 
+.SH "NAME"
 ind \- Indent all output from subprocess
 .PP 
-.SH "SYNOPSIS" 
+.SH "SYNOPSIS"
 \fBind\fP [ -h ] [ -p <fmt> ] [ -a <fmt> ] [ -P <fmt> ] [ -A <fmt> ] <command> <args> \&.\&.\&.
 .PP 
-.SH "DESCRIPTION" 
+.SH "DESCRIPTION"
 Indent all output from subprocess\&.
 .PP 
-.SH "OPTIONS" 
-.IP "-a fmt" 
+.SH "OPTIONS"
+.IP "-a fmt"
 Postfix stdout (default: "")
-.IP "-A fmt" 
+.IP "-A fmt"
 Postfix stderr (default: "")
-.IP "-h" 
+.IP "--copying"
+Show the license (3-clause BSD)
+.IP "-h, --help"
 Show help text
-.IP "-p fmt" 
+.IP "-p fmt"
 Prefix stdout (default: "  ")
-.IP "-P fmt" 
+.IP "-P fmt"
 Prefix stderr (default: ">>")
+.IP "-v"
+Increase verbosity (i\&.e\&. output more status/debug messages)
+.IP "--version"
+Show version
 .PP 
 Format is normal text, except for \&'%\&' which is the escape character\&.
-.IP "%%" 
+.IP "%%"
 Insert % character\&.
-.IP "%c" 
+.IP "%c"
 Insert output from ctime()\&. (e\&.g\&.: Tue Apr 19 19:31:04 2005)
+
 .PP 
-.SH "BUGS" 
+.SH "BUGS"
 Does not emulate a terminal for programs that check that\&. This
 means that the subprocess can\&'t adjust the width of the output\&.
 .PP 
 Also, subprocesses that rewind the line (with \er) are not updated
 in realtime\&.
 .PP 
-.SH "EXAMPLES" 
+.SH "EXAMPLES"
 Let\&'s say you\&'re running a script that has several stages, each producing
 some status output\&. Now you can indent the output from the substages\&.
 .PP 
@@ -51,6 +59,7 @@ ind -p "___ " -a " ___" growisofs -Z /dev/hdc=randomcrap\&.img
 .br 
 << snip >> 
 .br 
+
 .PP 
 This will produce the output: 
 .br 
@@ -72,13 +81,15 @@ ___ \&.\&.\&. ___
 .br 
 << snip >> 
 .br 
+
 .PP 
-.SH "SEE ALSO" 
+.SH "SEE ALSO"
 \fBsh(1)\fP, \fBctime(3)\fP
 .PP 
-.SH "COPYRIGHT" 
+.SH "COPYRIGHT"
 Copyright (c) Thomas Habets 2005\&.
 .PP 
-.SH "AUTHOR" 
-Ind was written by Thomas Habets <thomas@habets\&.pp\&.se>\&. Send
-all bug reports his way\&.
+.SH "AUTHOR"
+
+	Ind was written by Thomas Habets <thomas@habets\&.pp\&.se>\&. Send
+        all bug reports his way\&.
