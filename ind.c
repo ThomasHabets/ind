@@ -32,6 +32,10 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -47,19 +51,19 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#ifdef __OpenBSD__
+#ifdef HAVE_UTIL_H
 #include <util.h>
 #endif
 
-#ifdef __FreeBSD__
+#ifdef HAVE_LIBUTIL_H
 #include <libutil.h>
 #endif
 
-#ifdef __linux__
+#ifdef HAVE_PTY_H
 #include <pty.h>
 #endif
 
-#if defined (__SVR4) && defined (__sun)
+#if HAVE_ALLOCA_H
 #include <alloca.h>
 #endif
 
@@ -80,7 +84,7 @@
 static const size_t max_indstr_length = 1048576;
 
 static const char *argv0;
-static const float version = 0.12f;
+static const char *version = PACKAGE_VERSION;
 static int verbose = 0;
 static int sig_winch_counter = 0;
 
@@ -89,7 +93,7 @@ static int sig_winch_counter = 0;
  *
  * @param   fd:  fd to close
  */
-static int
+int
 do_close(int fd)
 {
   int err;
@@ -324,7 +328,7 @@ static void
 usage(int err)
 {
   
-  printf("ind %.2f, by Thomas Habets <thomas@habets.pp.se>\n"
+  printf("ind %s, by Thomas Habets <thomas@habets.pp.se>\n"
 	 "usage: %s [ -h ] [ -p <fmt> ] [ -a <fmt> ] [ -P <fmt> ] "
 	 "[ -A <fmt> ]  \n"
 	 "          <command> <args> ...\n"
