@@ -1,4 +1,4 @@
-/* ind/pty_socketpair.c
+/* ind/pty_socketpair.c - fake openpty() using socketpair()
  *
  * (BSD license without advertising clause below)
  *
@@ -26,8 +26,17 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 static const int ISO_C_forbids_an_empty_source_file = 1;
-#ifdef OTHER_UNIX
+#ifdef HAVE_OPENPTY
+/* system has real openpty() */
+#elif defined (__SVR4) && defined (__sun)
+/* We have one locally for Solaris */
+#else
+/* don't have real openpty(), and have no fix. Fake using socketpair() */
 #include <utmp.h>
 #include <unistd.h>
 #include <sys/types.h>
