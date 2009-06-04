@@ -223,15 +223,21 @@ print_ttyname(const char *fdname, int fdm, int fds)
   }
 #else
   if (!(tty = ttyname(fdm))) {
+    /* this never works with pty-based "sockets" */
+    /*
     fprintf(stderr, "%s: %s ttyname(master=%d) failed: %d %s\n",
 	    argv0, fdname, fdm, errno, strerror(errno));
+    */
   } else if (verbose) {
     fprintf(stderr, "%s: %s pty master name: %s\n", argv0, fdname, tty);
   }
 #endif
   if (!(tty = ttyname(fds))) {
+    /* this never works with pty-based "sockets" */
+    /*
     fprintf(stderr, "%s: %s ttyname(slave=%d) failed: %d %s\n",
 	    argv0, fdname, fds, errno, strerror(errno));
+    */
   } else if (verbose) {
     fprintf(stderr, "%s: %s pty slave name: %s\n", argv0, fdname, tty);
   }
