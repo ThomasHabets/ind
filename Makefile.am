@@ -10,7 +10,5 @@ mrproper: maintainer-clean
 	rm -f aclocal.m4 configure.scan depcomp missing install-sh config.h.in
 	rm -f Makefile.in configure autoscan*.log
 
-doc: ind.1
-
-ind.1: ind.yodl
+doc:
 	yodl2man -o ind.1 ind.yodl
