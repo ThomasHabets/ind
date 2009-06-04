@@ -50,9 +50,12 @@ login_tty(int fd)
   if (0 > setsid()) {
     return -1;
   }
+#ifdef TIOCSCTTY
+  /* TIOCSCTTY doesn't exist on IRIX. Is there a replacement? */
   if (ioctl(fd, TIOCSCTTY, 1) < 0) {
     return -1;
   }
+#endif
   if (0 > dup2(fd, 0)) {
     return -1;
   }
