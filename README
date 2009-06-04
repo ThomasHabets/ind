@@ -116,6 +116,7 @@ Log of tested systems and versions
    Debian GNU/kFreeBSD (squeeze) amd64
    Debian GNU/Linux (lenny) amd64
    OpenBSD 4.4 amd64
+   IRIX 6.5.15
 0.12:
    FreeBSD 6.1 x86
    OpenBSD 4.4 amd64
