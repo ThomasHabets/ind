@@ -111,6 +111,9 @@
 /* Define to 1 if `vfork' works. */
 #undef HAVE_WORKING_VFORK
 
+/* Define to 1 if you have the `_getpty' function. */
+#undef HAVE__GETPTY
+
 /* Name of package */
 #undef PACKAGE
 

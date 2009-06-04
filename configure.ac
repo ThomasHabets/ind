@@ -28,7 +28,7 @@ AC_TYPE_SSIZE_T
 # Checks for library functions.
 AC_FUNC_FORK
 AC_FUNC_MALLOC
-AC_CHECK_FUNCS([openpty dup2 memchr select strchr strdup strerror])
+AC_CHECK_FUNCS([openpty dup2 memchr select strchr strdup strerror _getpty])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
