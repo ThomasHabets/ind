@@ -35,6 +35,8 @@ static const int ISO_C_forbids_an_empty_source_file = 1;
 /* system has real openpty() */
 #elif defined (__SVR4) && defined (__sun)
 /* We have one locally for Solaris */
+#elif defined (HAVE_GETPTY)
+/* We have one that is based on getpty() */
 #else
 /* don't have real openpty(), and have no fix. Fake using socketpair() */
 #include <utmp.h>
@@ -42,6 +44,7 @@ static const int ISO_C_forbids_an_empty_source_file = 1;
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <strings.h>
+#include <errno.h>
 
 struct winsize;
 struct termios;
@@ -54,6 +57,8 @@ openpty(int  *amaster,  int  *aslave,  char  *name, struct termios
 	*termp, struct winsize * winp)
 {
   int fd[2];
+  int saved_errno = 0;
+
   if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd)) {
     return -1;
   }
