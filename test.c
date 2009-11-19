@@ -34,6 +34,9 @@ int main()
 		setvbuf(stdout, (char *)NULL, _IOLBF, 0);
 		setvbuf(stderr, (char *)NULL, _IOLBF, 0);
 	}
+        if (1) {
+                printf("ctermid(): %s\n", ctermid(0));
+        }
 	if (1) {
 		terminfo(0);
 		terminfo(1);
