@@ -20,10 +20,14 @@ startdit()
 enddit()
 	dit(--version) Show version
 
-	Format is normal text, except for '%' which is the escape character.
+	strftime() format, which is is normal text, except for '%'
+	which is the escape character.
+
 startdit()
 	dit(%%)  Insert % character.
-	dit(%c)  Insert output from ctime(). (e.g.: Tue Apr 19 19:31:04 2005)
+	dit(%F)  Date. Example: 2011-08-01
+	dit(%T)  Time. Example: 16:08:01
+	dit(%Z)  Time Zone. Example: BST
 enddit()
 
 manpagebugs()

@@ -5,57 +5,63 @@
 ind \- Indent all output from subprocess
 .PP 
 .SH "SYNOPSIS"
-\fBind\fP [ -h ] [ -p <fmt> ] [ -a <fmt> ] [ -P <fmt> ] [ -A <fmt> ] <command> <args> \&.\&.\&.
+\fBind\fP [ \-h ] [ \-p <fmt> ] [ \-a <fmt> ] [ \-P <fmt> ] [ \-A <fmt> ] <command> <args> \&.\&.\&.
 .PP 
 .SH "DESCRIPTION"
 Indent all output from subprocess\&.
 .PP 
 .SH "OPTIONS"
-.IP "-a fmt"
-Postfix stdout (default: "")
-.IP "-A fmt"
-Postfix stderr (default: "")
-.IP "--copying"
-Show the license (3-clause BSD)
-.IP "-h, --help"
+.IP "\-a fmt"
+Postfix stdout (default: \(dq\&\(dq\&)
+.IP "\-A fmt"
+Postfix stderr (default: \(dq\&\(dq\&)
+.IP "\-\-copying"
+Show the license (3\-clause BSD)
+.IP "\-h, \-\-help"
 Show help text
-.IP "-p fmt"
-Prefix stdout (default: "  ")
-.IP "-P fmt"
-Prefix stderr (default: ">>")
-.IP "-v"
+.IP "\-p fmt"
+Prefix stdout (default: \(dq\&  \(dq\&)
+.IP "\-P fmt"
+Prefix stderr (default: \(dq\&>>\(dq\&)
+.IP "\-v"
 Increase verbosity (i\&.e\&. output more status/debug messages)
-.IP "--version"
+.IP "\-\-version"
 Show version
 .PP 
-Format is normal text, except for \&'%\&' which is the escape character\&.
+strftime() format, which is is normal text, except for \(cq\&%\(cq\&
+which is the escape character\&.
+.PP 
 .IP "%%"
 Insert % character\&.
-.IP "%c"
-Insert output from ctime()\&. (e\&.g\&.: Tue Apr 19 19:31:04 2005)
+.IP "%F"
+Date\&. Example: 2011\-08\-01
+.IP "%T"
+Time\&. Example: 16:08:01
+.IP "%Z"
+Time Zone\&. Example: BST
 
 .PP 
 .SH "BUGS"
 Does not emulate a terminal for programs that check that\&. This
-means that the subprocess can\&'t adjust the width of the output\&.
+means that the subprocess can\(cq\&t adjust the width of the output\&.
 .PP 
 Also, subprocesses that rewind the line (with \er) are not updated
 in realtime\&.
 .PP 
 .SH "EXAMPLES"
-Let\&'s say you\&'re running a script that has several stages, each producing
+Let\(cq\&s say you\(cq\&re running a script that has several stages, each producing
 some status output\&. Now you can indent the output from the substages\&.
 .PP 
 << snip >> 
 .br 
-echo "Stage 1, reconfooberating the ablamatron\&.\&.\&." 
+echo \(dq\&Stage 1, reconfooberating the ablamatron\&.\&.\&.\(dq\& 
 .br 
-ind -p "--> " cat blah\&.txt 
+ind \-p \(dq\&\-\-> \(dq\& cat blah\&.txt 
 .br 
 .br 
-echo "Stage 2, burning image\&.\&.\&." 
+echo \(dq\&Stage 2, burning image\&.\&.\&.\(dq\& 
 .br 
-ind -p "___ " -a " ___" growisofs -Z /dev/hdc=randomcrap\&.img 
+ind \-p \(dq\&___ \(dq\& \-a \(dq\& ___\(dq\& growisofs \-Z /dev/hdc=randomcrap\&.img 
 .br 
 << snip >> 
 .br 
@@ -67,9 +73,9 @@ This will produce the output:
 .br 
 Stage 1, reconfooberating the ablamatron\&.\&.\&. 
 .br 
---> This is a text file 
+\-\-> This is a text file 
 .br 
---> with only text in it\&. 
+\-\-> with only text in it\&. 
 .br 
 Stage 2, burning image\&.\&.\&. 
 .br 

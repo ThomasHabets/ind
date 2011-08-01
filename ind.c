@@ -347,11 +347,12 @@ usage(int err)
 	 "\t-P          Prefix stderr (default: \">>\") \n"
 	 "\t-v          Verbose (repeat -v to increase verbosity)\n"
 	 "\t--version   Show version\n"
-	 "Format:\n"
-	 " Normal text, except:\n"
-	 "\t%%%%          Insert %%%%\n"
-	 "\t%%c          Insert output from ctime(3) function\n"
-	 , version, argv0);
+	 "Format is strftime()-formatted text. Examples:\n"
+         "\t%s -p 'Hello world | '  echo foo\n"
+         "\t => Hello world | foo\n"
+         "\t%s -p '%%F %%T %%Z | '  echo foo\n"
+         "\t => 2011-08-01 16:08:36 BST | foo\n"
+	 , version, argv0, argv0, argv0);
   exit(err);
 }
 
@@ -471,94 +472,66 @@ chomp(char *str)
  *
  * @param   fmt:     format string, as specified in the manpage (%c is ctime
  *                   for example)
- * @param   dowarn:  Print warnings on format to stderr
+ * @param   bail:    Bail if format string is broken
  * @param   output:  place to store the output string pointer at
  */
 static void
-format(const char *fmt, char **output, int dowarn)
+format(const char *infmt, char **output, int bail)
 {
-  size_t len = 0;
-  const char *p = fmt;
-  char *out;
-  char ct[128];
-  time_t t;
+  if (!*infmt) {
+    *output = malloc(1);
+    assert(*output);
+    **output = 0;
+    return;
+  }
 
-  while (*p) {
-    if (*p == '%') {
-      p++;
-      switch(*p) {
-      case 0:
-	p--;
-	break;
-      case '%':
-	len++;
-	break;
-      case 'c':
-	if (-1 == time(&t)) {
-	  static int done = 0;
-	  if (!done) {
-	    fprintf(stderr, "%s: time() failed: %s\n", argv0, strerror(errno));
-	    fprintf(stderr,
-		    "%s: time() failed: this message won't be repeated\n",
-		    argv0);
-	  }
-	}
-	strncpy(ct, ctime(&t), sizeof(ct)-1);
-	ct[sizeof(ct)-1] = 0;
-	len += chomp(ct);
-	break;
-      default:
-	break;
-      }
-    } else {
-      len++;
+  /* We need to inject a space as the first character in order to differentiate
+   * %p expanding to an empty string and an error, since strftime() sucks at
+   * error handling */
+  char fmt[strlen(infmt) + 2];
+  fmt[0] = ' ';
+  strcpy(&fmt[1], infmt);
+
+  char *buf = 0;
+  size_t bufn = 2;
+  for (;;) {
+    time_t t;
+    char *newbuf;
+    size_t n;
+
+    if (!(newbuf = realloc(buf, bufn))) {
+      fprintf(stderr, "ind: Memory alloc of %d bytes failed!\n", bufn);
+      exit(1);
     }
-    p++;
-    if (len >= max_indstr_length) {
-      /* this also prevents integer overflows in the malloc */
+    buf = newbuf;
+
+    struct tm tm;
+    time(&t);
+    memcpy(&tm, localtime(&t), sizeof(tm));
+    if ((n = strftime(buf, bufn, fmt, &tm))) {
+      break;
+    }
+
+    bufn *= 2;
+    if (bufn > max_indstr_length) {
+      /* Format expanded to too long a string, or is incorrectly formatted.
+       * in either case it's a user error or madness. */
+      if (bail) {
+        fprintf(stderr, "ind: Format string '%s' is broken.\n", fmt);
+        exit(1);
+      }
+
+      free(buf);
+      buf = strdup("ind fmt error");
+      if (!buf) {
+        fprintf(stderr, "ind: Memory alloc of a <20 bytes failed!\n");
+        exit(1);
+      }
       break;
     }
   }
-  if (!(*output = (char*)malloc(len+2))) {
-    fprintf(stderr, "%s: %s\n", argv0, strerror(errno));
-    reset_stdin_terminal();
-    exit(1);
-  }
-  out = *output;
-  p = fmt;
-  while (*p) {
-    if (*p == '%') {
-      p++;
-      switch(*p) {
-      case 'c':
-	strcpy(out,ct);
-	out = index(out,0);
-	break;
-      case '%':
-	*out++ = '%';
-	break;
-      case 0:
-	p--;
-	if (dowarn) {
-	  fprintf(stderr, "%s: String ends in %%. Change to %%%%.\n",
-		  argv0);
-	}
-	break;
-      default:
-	if (dowarn) {
-	  fprintf(stderr, "%s: Invalid escape char: %%%c. "
-		  "Did you mean %%%%%c?\n",
-		  argv0, *p, *p);
-	}
-	break;
-      }
-    } else {
-      *out++ = *p;
-    }
-    p++;
-  }
-  *out = 0;
-  assert(strlen(*output) == (unsigned)len);
+  memmove(buf, buf + 1, strlen(buf) + 1);
+  *output = buf;
 }
 
 /**
@@ -837,7 +810,7 @@ main(int argc, char **argv)
     usage(1);
   }
 
-  { /* print warnings on format */
+  { /* bail on format errors */
     char *tmp;
     format(prefix, &tmp, 1);
     free(tmp);
