@@ -11,25 +11,25 @@ puts "------------"
 set test "No options"
 send "./ind echo Hello World\n"
 expect {
-    -re "\n  Hello World$" { pass "$test" }
+    -re "\n  Hello World" { pass "$test" }
 }
 
 set test "Constant prefix"
 send "./ind -p 'stdout: ' echo Hello World\n"
 expect {
-    -re "\nstdout: Hello World$" { pass "$test" }
+    -re "\nstdout: Hello World" { pass "$test" }
 }
 
 set test "Constant suffix"
 send "./ind -a '<--stdout' echo Hello World\n"
 expect {
-    -re "\n  Hello World<--stdout$" { pass "$test" }
+    -re "\n  Hello World<--stdout" { pass "$test" }
 }
 
 set test "Constant pre- and suffix"
 send "./ind -p 'stdout: ' -a ' <-- stdout' echo Hello World\n"
 expect {
-    -re "\nstdout: Hello World <-- stdout$" { pass "$test" }
+    -re "\nstdout: Hello World <-- stdout" { pass "$test" }
 }
 
 #
@@ -38,95 +38,95 @@ expect {
 set test "%% -> %"
 send "./ind -p '%%' echo Hello World\n"
 expect {
-    -re "\n%Hello World$" { pass "$test" }
+    -re "\n%Hello World" { pass "$test" }
 }
 
 # End in %
-set test "% -> err msg"
-send "./ind -p '%' echo Hello World\n"
-expect {
-    -re ": String ends in %." { pass "$test" }
-}
-set test "%"
-send "./ind -p '%' echo Hello World\n"
-expect {
-    -re "\nHello World$" { pass "$test" }
-}
+#set test "% -> err msg"
+#send "./ind -p '%' echo Hello World\n"
+#expect {
+#    -re ": String ends in %." { pass "$test" }
+#}
+#set test "%"
+#send "./ind -p '%' echo Hello World\n"
+#expect {
+#    -re "\nHello World" { pass "$test" }
+#}
 # End in ...%
-set test "...% -> err msg"
-send "./ind -p 'lala%' echo Hello World\n"
-expect {
-    -re ": String ends in %." { pass "$test" }
-}
-set test "...%"
-send "./ind -p 'lala%' echo Hello World\n"
-expect {
-    -re "\nHello World$" { pass "$test" }
-}
+#set test "...% -> err msg"
+#send "./ind -p 'lala%' echo Hello World\n"
+#expect {
+#    -re ": String ends in %." { pass "$test" }
+#}
+#set test "...%"
+#send "./ind -p 'lala%' echo Hello World\n"
+#expect {
+#    -re "\nHello World" { pass "$test" }
+#}
 
-# %a
-set test "%a -> err msg"
-send "./ind -p '%a' echo Hello World\n"
-expect {
-    -re ": Invalid escape char: %a" { pass "$test" }
-}
-set test "%a"
-send "./ind -p '%a' echo Hello World\n"
-expect {
-    -re "\nHello World$" { pass "$test" }
-}
-# %a...
-set test "%a... -> err msg"
-send "./ind -p '%aaoe' echo Hello World\n"
-expect {
-    -re ": Invalid escape char: %a" { pass "$test" }
-}
-set test "%a..."
-send "./ind -p '%aaoe' echo Hello World\n"
-expect {
-    -re "\naoeHello World$" { pass "$test" }
-}
-# ...%a
-set test "...%a -> err msg"
-send "./ind -p 'aoe%a' echo Hello World\n"
-expect {
-    -re ": Invalid escape char: %a" { pass "$test" }
-}
-set test "...%a"
-send "./ind -p 'aoe%a' echo Hello World\n"
-expect {
-    -re "\naoeHello World$" { pass "$test" }
-}
+# # %a
+# set test "%a -> err msg"
+# send "./ind -p '%a' echo Hello World\n"
+# expect {
+#     -re ": Invalid escape char: %a" { pass "$test" }
+# }
+# set test "%a"
+# send "./ind -p '%a' echo Hello World\n"
+# expect {
+#     -re "\nHello World" { pass "$test" }
+# }
+# # %a...
+# set test "%a... -> err msg"
+# send "./ind -p '%aaoe' echo Hello World\n"
+# expect {
+#     -re ": Invalid escape char: %a" { pass "$test" }
+# }
+# set test "%a..."
+# send "./ind -p '%aaoe' echo Hello World\n"
+# expect {
+#     -re "\naoeHello World" { pass "$test" }
+# }
+# # ...%a
+# set test "...%a -> err msg"
+# send "./ind -p 'aoe%a' echo Hello World\n"
+# expect {
+#     -re ": Invalid escape char: %a" { pass "$test" }
+# }
+# set test "...%a"
+# send "./ind -p 'aoe%a' echo Hello World\n"
+# expect {
+#     -re "\naoeHello World" { pass "$test" }
+# }
 
 
 # End in %c%
-set test "...%c%  err msg"
-send "./ind -p '%c%' echo Hello World\n"
-expect {
-    -re ": String ends in %." { pass "$test" }
-}
+#set test "...%c%  err msg"
+#send "./ind -p '%c%' echo Hello World\n"
+#expect {
+#    -re ": String ends in %." { pass "$test" }
+#}
 set test "...%c%"
 send "./ind -p '%c%' echo Hello World\n"
 expect {
-    -re "Hello World$" { pass "$test" }
+    -re " \[0-9\]{4}%Hello World" { pass "$test" }
 }
 
 # %c%%
 set test "%c%%"
 send "./ind -p '%c%%' echo Hello World\n"
 expect {
-    -re "\n... .* \[0-9\]{4}%Hello World$" { pass "$test" }
+    -re "\n... .* \[0-9\]{4}%Hello World" { pass "$test" }
 }
 # End in %c%%
 set test "...%c%%"
 send "./ind -p 'aoe%c%%' echo Hello World\n"
 expect {
-    -re "\naoe.* \[0-9\]{4}%Hello World$" { pass "$test" }
+    -re "\naoe.* \[0-9\]{4}%Hello World" { pass "$test" }
 }
 
 # %c
 set test "Time prefix"
 send "./ind -p '%c ' echo Hello World\n"
 expect {
-    -re "\n... ... .. ..:..:.. 20.. Hello World$" { pass "$test" }
+    -re "\n... ... .. ..:..:.. 20.. Hello World" { pass "$test" }
 }

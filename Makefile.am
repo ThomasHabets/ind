@@ -12,3 +12,6 @@ mrproper: maintainer-clean
 
 doc:
 	yodl2man -o ind.1 ind.yodl
+
+check:
+	runtest
