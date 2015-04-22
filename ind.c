@@ -500,7 +500,7 @@ format(const char *infmt, char **output, int bail)
     size_t n;
 
     if (!(newbuf = realloc(buf, bufn))) {
-      fprintf(stderr, "ind: Memory alloc of %d bytes failed!\n", bufn);
+      fprintf(stderr, "ind: Memory alloc of %zd bytes failed!\n", bufn);
       exit(1);
     }
     buf = newbuf;
@@ -712,7 +712,8 @@ setup_pty(const char *prefix, const char *postfix,
 static void
 sig_window_resize(int unused)
 {
-  sig_winch_counter += (unused == unused); /* hide warning */
+  unused = unused; /* hide warning */
+  sig_winch_counter++;
 }
 
 /**
@@ -1108,7 +1109,7 @@ main(int argc, char **argv)
 	/* FIXME: this should be nonblocking to not deadlock with child */
 	ssize_t nw = safe_write(ind_stdin, buf, n);
 	if (nw != n) {
-	  fprintf(stderr, "%s: write(ind -> child stdin, %d)=>%d err=%d %s\n",
+	  fprintf(stderr, "%s: write(ind -> child stdin, %zd)=>%zd err=%d %s\n",
 		  argv0, n, nw, errno, strerror(errno));
 	  reset_stdin_terminal();
 	  exit(1);
