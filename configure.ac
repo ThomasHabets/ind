@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 #
 AC_PREREQ([2.61])
-AC_INIT([ind], [0.12], [thomas@habets.pp.se])
+AC_INIT([ind], [0.12], [thomas@habets.se])
 AM_INIT_AUTOMAKE
 AM_MAINTAINER_MODE
 AC_CONFIG_SRCDIR([ind.c])

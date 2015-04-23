@@ -2,7 +2,7 @@
  *
  * ind
  *
- * By Thomas Habets <thomas@habets.pp.se>
+ * By Thomas Habets <thomas@habets.se>
  *
  */
 /*
@@ -335,7 +335,7 @@ static void
 usage(int err)
 {
   
-  printf("ind %s, by Thomas Habets <thomas@habets.pp.se>\n"
+  printf("ind %s, by Thomas Habets <thomas@habets.se>\n"
 	 "usage: %s [ -h ] [ -p <fmt> ] [ -a <fmt> ] [ -P <fmt> ] "
 	 "[ -A <fmt> ]  \n"
 	 "          <command> <args> ...\n"
