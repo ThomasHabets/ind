@@ -14,4 +14,5 @@ doc:
 	yodl2man -o ind.1 ind.yodl
 
 check:
+	mkdir -p testsuite/logs
 	runtest
