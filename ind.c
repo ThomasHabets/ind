@@ -8,7 +8,7 @@
 /*
  * (BSD license without advertising clause below)
  *
- * Copyright (c) 2005-2009 Thomas Habets. All rights reserved.
+ * Copyright (c) 2005-2009 Thomas Habets <thomas@habets.se>. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -363,7 +363,7 @@ static void
 printVersion()
 {
   printf("ind %s\n", version);
-  printf("Copyright (C) 2005-2009 Thomas Habets\n"
+  printf("Copyright (C) 2005-2009 Thomas Habets <thomas@habets.se>\n"
          "License 3-clause BSD. Run with --copying to see the whole license.\n"
          "This is free software: you are free to change and "
          "redistribute it.\n"
@@ -380,7 +380,7 @@ printLicense()
   printf("ind %s\n", version);
   printf("(BSD license without advertising clause below)\n"
          "\n"
-         " Copyright (c) 2005-2009 Thomas Habets. All rights reserved.\n"
+         " Copyright (c) 2005-2009 Thomas Habets <thomas@habets.se>. All rights reserved.\n"
          "\n"
          " Redistribution and use in source and binary forms, with or "
          "without\n"
