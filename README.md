@@ -1,19 +1,15 @@
-ind/README
+# ind
 
- ind
+By Thomas Habets <thomas@habets.se>
 
-    By Thomas Habets <thomas@habets.se>
-    http://www.habets.pp.se/synscan/
+http://www.habets.pp.se/synscan/
 
+## Why the name 'ind'?
 
-Why the name 'ind'?
--------------------
-If it makes you feel better, you can think of it as meaning
-"Indent to make reading output Not-Difficult".
+Indent, or "Indent to make reading output Not-Difficult".
 
+## What does it do?
 
-What does it do?
-----------------
 When you prefix a command with 'ind' every line that the program
 outputs can be prefixed and postfixed by a short string.
 
@@ -26,18 +22,23 @@ outside the scope of ind.
 
 Note that because some programs will behave differently if stdout is
 not tty. This means that if you run one of these commands:
- $ ind ./test | cat                  
- $ ./test
+
+```
+$ ind ./test | cat
+$ ./test
+```
+
 (where test is the test program in the ind source tree)
 The order of the output will be "wrong". But it will be *the same*
 order. Ind will not change anything. It could, but that could have
-unintended side effects. So it doesn't.
+unintended side effects. So it doesn't. For more info on libc
+buffering see the manpage for `setvbuf`.
 
+## Example uses
 
-Example uses
-------------
-Ex1
----
+### Ex1
+
+```
 $ ind ls; ind ind ls
   Makefile
   README
@@ -51,9 +52,24 @@ $ ind ls; ind ind ls
     ind.1
     ind.c
     ind.yodl
+```
 
-Ex2
----
+### Ex2
+
+```
+$ ind -p '%s ' ping 2001:4860:4860::8888
+1567158247 PING 2001:4860:4860::8888 (2001:4860:4860::8888): 56 data bytes
+1567158247 64 bytes from 2001:4860:4860::8888: icmp_seq=0 hlim=56 time=1.827 ms
+1567158248 64 bytes from 2001:4860:4860::8888: icmp_seq=1 hlim=56 time=1.685 ms
+1567158249 64 bytes from 2001:4860:4860::8888: icmp_seq=2 hlim=56 time=1.674 ms
+1567158250 64 bytes from 2001:4860:4860::8888: icmp_seq=3 hlim=56 time=1.866 ms
+1567158251 64 bytes from 2001:4860:4860::8888: icmp_seq=4 hlim=56 time=1.651 ms
+[...]
+```
+
+### Ex3
+
+```
 $ ind ./test
   fd: 0
         Size: 32x123
@@ -70,22 +86,25 @@ $ ind ./test
   Progress: done
   Give me an integer: 123
   Value: 123
+```
 
-Ex3
----
+### Ex4
+
 Let's say you're running a script that has several stages, each producing
 some status output. Now you can indent the output from the substages.
 
-<< snip >>
+```
 echo "Stage 1, reconfooberating the ablamatron..."
 ind -p "--> " cat blah.txt
 
 echo "Stage 2, burning image..."
 ind -p "    " growisofs -Z /dev/hdc=randomcrap.img
-<< snip >>
+[...]
+```
 
 This will produce the output:
-<< snip >>
+
+```
 Stage 1, reconfooberating the ablamatron...
 --> This is a text file
 --> with only text in it.
@@ -93,12 +112,12 @@ Stage 2, burning image...
     ...
     ...
     ...
-<< snip >>
+```
 
+## Testing
+Before a release test this on some different systems.
 
-Testing
--------
-Before a release test this on FreeBSD, OpenBSD, Linux & Solaris:
+```
 ./ind ./test
 ./ind ./test < t
 ./ind ./test < t | cat
@@ -108,10 +127,10 @@ Before a release test this on FreeBSD, OpenBSD, Linux & Solaris:
 ./ind cat < t
 ./ind cat < t > apa
 ./ind cat > apa
+```
 
+### Log of tested systems and versions
 
-Log of tested systems and versions
-----------------------------------
 0.13pre-release:
    Debian GNU/kFreeBSD (squeeze) amd64
    Debian GNU/Linux (lenny) amd64
@@ -122,7 +141,3 @@ Log of tested systems and versions
    OpenBSD 4.4 amd64
    Debian GNU/Linux (lenny) amd64
    Solaris 10 sparc
-   
-
-----------------------------------------------------------------------------
-Send questions/suggestions/patches/rants/money/alphas to thomas@habets.se
