@@ -1,6 +1,7 @@
 # ind
 
-By Thomas Habets <thomas@habets.se>
+Copyright (c) Thomas Habets <thomas@habets.se> 2005-2019
+Copyright (c) 2015,2019 Google Inc.
 
 http://www.habets.pp.se/synscan/
 

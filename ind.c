@@ -8,7 +8,7 @@
 /*
  * (BSD license without advertising clause below)
  *
- * Copyright (c) 2005-2009 Thomas Habets <thomas@habets.se>. All rights reserved.
+ * Copyright (c) 2005-2019 Thomas Habets <thomas@habets.se>. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
