@@ -33,7 +33,9 @@
 static const int ISO_C_forbids_an_empty_source_file = 1;
 
 #include <unistd.h>
+#ifdef HAVE_STROPTS_H
 #include <stropts.h>
+#endif
 #include <termios.h>
 
 #include <sys/ioctl.h>

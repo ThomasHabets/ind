@@ -19,7 +19,7 @@ AC_CHECK_LIB([util], [openpty])
 
 # Checks for header files.
 AC_FUNC_ALLOCA
-AC_CHECK_HEADERS([fcntl.h stdlib.h string.h strings.h sys/ioctl.h sys/socket.h termios.h unistd.h utmp.h pty.h util.h libutil.h alloca.h])
+AC_CHECK_HEADERS([fcntl.h stdlib.h string.h strings.h stropts.h sys/ioctl.h sys/socket.h termios.h unistd.h utmp.h pty.h util.h libutil.h alloca.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_SIZE_T
